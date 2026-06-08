@@ -18,9 +18,8 @@ media/
 db.sqlite3
 
 # Virtual environments
-venv/
+environ/
 env/
-.venv/
 
 ## Frontend
 # Dependencies
