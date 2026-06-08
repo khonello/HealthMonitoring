@@ -1,10 +1,10 @@
 from rest_framework import status
-from rest_framework.generics import CreateAPIView, GenericAPIView
+from rest_framework.generics import CreateAPIView, GenericAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenRefreshView  # noqa: F401 — re-exported
 
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, get_tokens_for_user
+from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, ProfileUpdateSerializer, get_tokens_for_user
 
 
 class RegisterView(CreateAPIView):
@@ -32,3 +32,21 @@ class LoginView(GenericAPIView):
         user = serializer.validated_data["user"]
         tokens = get_tokens_for_user(user)
         return Response({"user": UserSerializer(user).data, **tokens})
+
+
+class ProfileView(RetrieveUpdateAPIView):
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return ProfileUpdateSerializer
+        return UserSerializer
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(UserSerializer(user).data)

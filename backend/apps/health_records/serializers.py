@@ -56,7 +56,19 @@ class HealthRecordSubmitSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class TriageSummarySerializer(serializers.Serializer):
+    level = serializers.CharField(source="triage_level")
+    urgency = serializers.CharField()
+    confidence = serializers.CharField(source="confidence_level")
+    recommendation = serializers.CharField(source="recommendation_text")
+    follow_up_flag = serializers.BooleanField()
+    follow_up_in_hours = serializers.IntegerField(source="follow_up_hours", allow_null=True)
+    generated_at = serializers.DateTimeField()
+
+
 class HealthRecordListSerializer(serializers.ModelSerializer):
+    triage = serializers.SerializerMethodField()
+
     class Meta:
         model = HealthRecord
         fields = (
@@ -69,5 +81,12 @@ class HealthRecordListSerializer(serializers.ModelSerializer):
             "spo2",
             "systolic_bp",
             "diastolic_bp",
+            "triage",
         )
         read_only_fields = fields
+
+    def get_triage(self, obj):
+        try:
+            return TriageSummarySerializer(obj.triage_result).data
+        except Exception:
+            return None

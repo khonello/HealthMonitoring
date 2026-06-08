@@ -26,4 +26,8 @@ class HealthHistoryView(ListAPIView):
     serializer_class = HealthRecordListSerializer
 
     def get_queryset(self):
-        return HealthRecord.objects.filter(user=self.request.user)
+        return (
+            HealthRecord.objects
+            .filter(user=self.request.user)
+            .select_related("triage_result")
+        )
