@@ -1,1 +1,29 @@
-// TODO: implement
+export const Spacing = {
+  px: 1,
+  '0.5': 2,
+  '1': 4,
+  '1.5': 6,
+  '2': 8,
+  '3': 12,
+  '4': 16,
+  '5': 20,
+  '6': 24,
+  '8': 32,
+  '10': 40,
+  '12': 48,
+  '16': 64,
+  '20': 80,
+
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+
+  screenH: 20,
+  screenV: 16,
+  cardPadding: 20,
+  cardGap: 12,
+  sectionGap: 28,
+} as const;
