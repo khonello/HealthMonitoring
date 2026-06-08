@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "HealthMonitoring",
+    "slug": "health-monitoring",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "healthmonitoring",
+    "assetBundlePatterns": ["**/*"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "Allow HealthMonitoring to use Face ID."
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.healthmonitoring.app"
+    },
+    "android": {
+      "package": "com.healthmonitoring.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#F2F5FA"
+      }
+    }
+  }
+}

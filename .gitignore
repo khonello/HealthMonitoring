@@ -1,0 +1,56 @@
+## Backend
+# Environment
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Django
+*.log
+logs/
+static/collected/
+media/
+db.sqlite3
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+## Frontend
+# Dependencies
+frontend/node_modules/
+
+# Expo
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+frontend/expo-env.d.ts
+
+# Native builds
+frontend/android/
+frontend/ios/
+frontend/*.jks
+frontend/*.keystore
+frontend/*.p8
+frontend/*.p12
+frontend/*.cer
+frontend/*.mobileprovision
+
+# Environment
+frontend/.env
+frontend/*.env
+
+# Logs
+frontend/npm-debug.*
+frontend/yarn-debug.*
+frontend/yarn-error.*
+
+# Caches
+frontend/.cache/
+frontend/.babel_cache/

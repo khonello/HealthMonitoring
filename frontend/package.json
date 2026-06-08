@@ -1,0 +1,36 @@
+{
+  "name": "health-monitoring",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios"
+  },
+  "dependencies": {
+    "expo": "*",
+    "expo-router": "*",
+    "expo-blur": "*",
+    "expo-linear-gradient": "*",
+    "expo-secure-store": "*",
+    "expo-font": "*",
+    "@expo-google-fonts/dm-serif-display": "*",
+    "@expo-google-fonts/dm-sans": "*",
+    "@expo/vector-icons": "*",
+    "react": "*",
+    "react-native": "*",
+    "react-native-reanimated": "*",
+    "react-native-safe-area-context": "*",
+    "react-native-screens": "*",
+    "react-native-animatable": "*",
+    "react-native-skeleton-placeholder": "*",
+    "@react-native-async-storage/async-storage": "*",
+    "zustand": "*",
+    "axios": "*"
+  },
+  "devDependencies": {
+    "@types/react": "*",
+    "typescript": "*",
+    "babel-preset-expo": "*"
+  }
+}
