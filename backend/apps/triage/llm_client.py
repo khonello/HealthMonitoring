@@ -1,5 +1,5 @@
 import os
-import groq
+from groq import Groq
 
 MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
@@ -14,21 +14,15 @@ def call_llm(system_prompt: str, user_prompt: str) -> str:
         raise LLMError("GROQ_API_KEY environment variable is not set.")
 
     try:
-        client = groq.Groq(api_key=api_key)
-        completion = client.chat.completions.create(
+        client = Groq(api_key=api_key)
+        response = client.chat.completions.create(
             model=MODEL,
-            max_tokens=512,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            max_tokens=512,
         )
-        return completion.choices[0].message.content
-    except groq.APIConnectionError as e:
-        raise LLMError(f"Connection error: {e}") from e
-    except groq.RateLimitError as e:
-        raise LLMError(f"Rate limit exceeded: {e}") from e
-    except groq.APIStatusError as e:
-        raise LLMError(f"API error {e.status_code}: {e.message}") from e
+        return response.choices[0].message.content
     except Exception as e:
-        raise LLMError(f"Unexpected error: {e}") from e
+        raise LLMError(f"Groq API error: {e}") from e
