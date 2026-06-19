@@ -2,6 +2,13 @@ import { api } from './api';
 import { HealthRecord, HealthSubmitPayload } from '@/types/health';
 import { SubmitResponse } from '@/types/report';
 
+interface PaginatedRecords {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: HealthRecord[];
+}
+
 export const healthService = {
   async submit(payload: HealthSubmitPayload): Promise<SubmitResponse> {
     const clean = Object.fromEntries(
@@ -11,8 +18,26 @@ export const healthService = {
     return data;
   },
 
-  async getHistory(): Promise<HealthRecord[]> {
-    const { data } = await api.get<{ results: HealthRecord[] } | HealthRecord[]>('/api/health/history/');
-    return Array.isArray(data) ? data : data.results;
+  async getHistory(url?: string): Promise<PaginatedRecords> {
+    const endpoint = url ?? '/api/health/history/';
+    const { data } = await api.get<PaginatedRecords | HealthRecord[]>(endpoint);
+    if (Array.isArray(data)) {
+      return { count: data.length, next: null, previous: null, results: data };
+    }
+    return data;
+  },
+
+  async exportData(): Promise<HealthRecord[]> {
+    const { data } = await api.get<HealthRecord[]>('/api/health/export/');
+    return data;
+  },
+
+  async deleteRecord(id: number): Promise<void> {
+    await api.delete(`/api/health/${id}/`);
+  },
+
+  async getTip(): Promise<{ text: string; category: string; icon: string }> {
+    const { data } = await api.get('/api/health/tip/');
+    return data;
   },
 };

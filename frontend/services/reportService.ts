@@ -11,4 +11,9 @@ export const reportService = {
     const { data } = await api.get<HealthReport>(`/api/reports/${id}/`);
     return data;
   },
+
+  async retryTriage(id: number): Promise<HealthReport> {
+    const { data } = await api.post<HealthReport>(`/api/reports/${id}/retry/`);
+    return data;
+  },
 };

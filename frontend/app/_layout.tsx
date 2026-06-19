@@ -16,10 +16,12 @@ import {
 } from '@expo-google-fonts/dm-serif-display';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '@/store/authStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { Colors } from '@/constants/colors';
 
 function RootLayoutNav() {
   const { user, isHydrated } = useAuthStore();
+  const { completed: onboardingDone } = useOnboardingStore();
   const segments = useSegments();
   const router = useRouter();
 
@@ -27,16 +29,22 @@ function RootLayoutNav() {
     if (!isHydrated) return;
     const inAuth = segments[0] === '(auth)';
     const inTabs = segments[0] === '(tabs)';
+    const inOnboarding = segments[0] === 'onboarding';
+    const inApp = inTabs || segments[0] === 'report' || segments[0] === 'metric' || segments[0] === 'alert' || segments[0] === 'profile';
+
     if (!user && !inAuth) {
       router.replace('/(auth)/login');
-    } else if (user && !inTabs) {
+    } else if (user && !onboardingDone && !inOnboarding) {
+      router.replace('/onboarding');
+    } else if (user && onboardingDone && !inApp) {
       router.replace('/(tabs)');
     }
-  }, [user, isHydrated, segments]);
+  }, [user, isHydrated, onboardingDone, segments]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
       <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
       <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
       <Stack.Screen

@@ -6,6 +6,7 @@ import { Colors } from '@/constants/colors';
 import { Font } from '@/constants/typography';
 import { Radius } from '@/constants/radius';
 import { getTriageDisplay } from '@/utils/triage';
+import { CardAccent } from '@/utils/cardAccents';
 
 interface TriageResultCardProps {
   level: TriageLevel;
@@ -16,6 +17,7 @@ interface TriageResultCardProps {
   followUpFlag?: boolean;
   followUpHours?: number | null;
   compact?: boolean;
+  accent?: CardAccent;
 }
 
 export function TriageResultCard({
@@ -27,26 +29,33 @@ export function TriageResultCard({
   followUpFlag,
   followUpHours,
   compact = false,
+  accent,
 }: TriageResultCardProps) {
   const display = getTriageDisplay(level, urgency, hardRuleTriggered);
-  const { colors } = display;
+
+  // Use accent palette when provided, fall back to triage-derived colors
+  const c = accent
+    ? {
+        bg: accent.bg,
+        border: accent.border,
+        dot: accent.dot,
+        dark: accent.dark,
+        text: accent.text,
+      }
+    : display.colors;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+    <View style={[styles.card, { backgroundColor: c.bg, borderColor: c.border }]}>
       <View style={styles.header}>
-        <View style={[styles.iconWrap, { backgroundColor: colors.dot + '22' }]}>
-          <Ionicons
-            name={display.iconName as any}
-            size={20}
-            color={colors.dot}
-          />
+        <View style={[styles.iconWrap, { backgroundColor: c.dot + '22' }]}>
+          <Ionicons name={display.iconName as any} size={20} color={c.dot} />
         </View>
         <View style={styles.headerText}>
-          <Text style={[styles.level, { color: colors.dark }]}>{display.label}</Text>
-          <Text style={[styles.sublabel, { color: colors.text }]}>{display.sublabel}</Text>
+          <Text style={[styles.level, { color: c.dark }]}>{display.label}</Text>
+          <Text style={[styles.sublabel, { color: c.text }]}>{display.sublabel}</Text>
         </View>
-        <View style={[styles.urgencyPill, { backgroundColor: colors.dot + '22' }]}>
-          <Text style={[styles.urgencyText, { color: colors.dark }]}>
+        <View style={[styles.urgencyPill, { backgroundColor: c.dot + '22' }]}>
+          <Text style={[styles.urgencyText, { color: c.dark }]}>
             {urgency.charAt(0).toUpperCase() + urgency.slice(1)}
           </Text>
         </View>
@@ -63,15 +72,15 @@ export function TriageResultCard({
       )}
 
       {!compact && (
-        <Text style={[styles.recommendation, { color: colors.dark }]} numberOfLines={4}>
+        <Text style={[styles.recommendation, { color: c.dark }]} numberOfLines={4}>
           {recommendation}
         </Text>
       )}
 
       {!compact && followUpFlag && followUpHours && (
-        <View style={[styles.followUp, { borderColor: colors.border }]}>
-          <Ionicons name="time-outline" size={13} color={colors.text} />
-          <Text style={[styles.followUpText, { color: colors.text }]}>
+        <View style={[styles.followUp, { borderColor: c.border }]}>
+          <Ionicons name="time-outline" size={13} color={c.text} />
+          <Text style={[styles.followUpText, { color: c.text }]}>
             Follow up in {followUpHours}h if symptoms persist
           </Text>
         </View>

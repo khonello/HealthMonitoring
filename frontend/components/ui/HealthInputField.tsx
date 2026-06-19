@@ -5,7 +5,6 @@ import {
   TextInput,
   StyleSheet,
   Pressable,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
@@ -15,11 +14,11 @@ import { Shadows } from '@/constants/shadows';
 
 type Status = 'normal' | 'caution' | 'critical' | 'default';
 
-const STATUS_COLORS: Record<Status, { line: string; dot: string; hint: string }> = {
-  normal: { line: Colors.normal.dot, dot: Colors.normal.dot, hint: Colors.normal.text },
-  caution: { line: Colors.caution.dot, dot: Colors.caution.dot, hint: Colors.caution.text },
-  critical: { line: Colors.critical.dot, dot: Colors.critical.dot, hint: Colors.critical.text },
-  default: { line: Colors.separator, dot: Colors.textTertiary, hint: Colors.textTertiary },
+const STATUS_COLORS: Record<Status, { dot: string; hint: string }> = {
+  normal: { dot: Colors.normal.dot, hint: Colors.normal.text },
+  caution: { dot: Colors.caution.dot, hint: Colors.caution.text },
+  critical: { dot: Colors.critical.dot, hint: Colors.critical.text },
+  default: { dot: Colors.textTertiary, hint: Colors.textTertiary },
 };
 
 interface HealthInputFieldProps {
@@ -55,21 +54,9 @@ export function HealthInputField({
 }: HealthInputFieldProps) {
   const sc = STATUS_COLORS[status];
   const inputRef = useRef<TextInput>(null);
-  const focusAnim = useRef(new Animated.Value(0)).current;
-
-  const onFocus = () =>
-    Animated.timing(focusAnim, { toValue: 1, duration: 180, useNativeDriver: false }).start();
-  const onBlur = () =>
-    Animated.timing(focusAnim, { toValue: 0, duration: 180, useNativeDriver: false }).start();
-
-  const lineColor = error
-    ? Colors.critical.dot
-    : focusAnim.interpolate({ inputRange: [0, 1], outputRange: [sc.line, Colors.primary] });
 
   return (
     <Pressable onPress={() => inputRef.current?.focus()} style={styles.card}>
-      <Animated.View style={[styles.statusLine, { backgroundColor: lineColor }]} />
-
       <View style={styles.inner}>
         <View style={styles.labelRow}>
           {icon && (
@@ -86,8 +73,6 @@ export function HealthInputField({
             ref={inputRef}
             value={value}
             onChangeText={onChangeText}
-            onFocus={onFocus}
-            onBlur={onBlur}
             placeholder={placeholder}
             placeholderTextColor={Colors.placeholder}
             keyboardType="decimal-pad"
@@ -101,8 +86,6 @@ export function HealthInputField({
               <TextInput
                 value={secondValue}
                 onChangeText={onSecondChangeText}
-                onFocus={onFocus}
-                onBlur={onBlur}
                 placeholder={secondPlaceholder ?? '—'}
                 placeholderTextColor={Colors.placeholder}
                 keyboardType="decimal-pad"
@@ -131,9 +114,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 10,
     ...Shadows.card,
-  },
-  statusLine: {
-    width: 4,
   },
   inner: {
     flex: 1,

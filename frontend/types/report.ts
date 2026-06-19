@@ -61,6 +61,7 @@ export interface HealthReport {
   id: number;
   triage: TriageResult;
   readings_summary: ReadingsSummary;
+  symptom_description: string | null;
   disclaimer_text: string;
   generated_at: string;
 }

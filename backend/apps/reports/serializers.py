@@ -24,6 +24,11 @@ class TriageResultSerializer(serializers.ModelSerializer):
 
 class HealthReportSerializer(serializers.ModelSerializer):
     triage = TriageResultSerializer(source="triage_result", read_only=True)
+    symptom_description = serializers.CharField(
+        source="health_record.symptom_description",
+        allow_null=True,
+        read_only=True,
+    )
 
     class Meta:
         model = HealthReport
@@ -31,6 +36,7 @@ class HealthReportSerializer(serializers.ModelSerializer):
             "id",
             "triage",
             "readings_summary",
+            "symptom_description",
             "disclaimer_text",
             "generated_at",
         )

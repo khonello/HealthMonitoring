@@ -18,6 +18,8 @@ interface PrimaryButtonProps {
   disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   style?: ViewStyle;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 export function PrimaryButton({
@@ -27,14 +29,22 @@ export function PrimaryButton({
   disabled = false,
   variant = 'primary',
   style,
+  accessibilityLabel,
+  accessibilityHint,
 }: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
+  const a11yLabel = accessibilityLabel ?? label;
+  const a11yState = { disabled: isDisabled, busy: loading };
 
   if (variant === 'ghost') {
     return (
       <Pressable
         onPress={onPress}
         disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={a11yLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={a11yState}
         style={({ pressed }) => [
           styles.ghost,
           isDisabled && styles.ghostDisabled,
@@ -52,6 +62,10 @@ export function PrimaryButton({
       <Pressable
         onPress={onPress}
         disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={a11yLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={a11yState}
         style={({ pressed }) => [
           styles.secondary,
           isDisabled && styles.disabledOpacity,
@@ -73,6 +87,10 @@ export function PrimaryButton({
       <Pressable
         onPress={onPress}
         disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={a11yLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={a11yState}
         style={({ pressed }) => [
           styles.danger,
           isDisabled && styles.disabledOpacity,
@@ -93,6 +111,10 @@ export function PrimaryButton({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={a11yState}
       style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }, style]}
     >
       <LinearGradient

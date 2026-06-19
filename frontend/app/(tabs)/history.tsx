@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,19 +9,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore } from '@/store/healthStore';
 import { useHealth } from '@/hooks/useHealth';
-import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
+import { RecordCard } from '@/components/ui/RecordCard';
 import { Colors } from '@/constants/colors';
 import { Font, TextStyles } from '@/constants/typography';
 import { Radius } from '@/constants/radius';
 import { Spacing } from '@/constants/spacing';
-import { Shadows } from '@/constants/shadows';
 import { HealthRecord } from '@/types/health';
-import { getTriageDisplay, formatDate, formatTime } from '@/utils/triage';
 
 type Section = { title: string; data: HealthRecord[] };
 
@@ -41,25 +39,22 @@ function groupByMonth(records: HealthRecord[]): Section[] {
 export default function HistoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { records, isLoading } = useHealthStore();
-  const { fetchHistory } = useHealth();
+  const { records, isLoading, isLoadingMore, nextPageUrl, totalCount } = useHealthStore();
+  const { fetchHistory, fetchMoreHistory, deleteRecord } = useHealth();
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
+  useFocusEffect(useCallback(() => { fetchHistory(); }, [fetchHistory]));
 
-  const onRefresh = useCallback(async () => {
-    await fetchHistory();
-  }, [fetchHistory]);
+  const onRefresh = useCallback(async () => { await fetchHistory(); }, [fetchHistory]);
+  const onEndReached = useCallback(() => { if (nextPageUrl) fetchMoreHistory(); }, [nextPageUrl, fetchMoreHistory]);
 
   const sections = groupByMonth(records);
 
   return (
     <LinearGradient colors={['#F0F4FF', '#FFFFFF']} style={styles.gradient}>
       <View style={[styles.topBar, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.screenTitle}>History</Text>
+        <Text style={styles.screenTitle}>Records</Text>
         <Text style={styles.screenSub}>
-          {records.length} {records.length === 1 ? 'entry' : 'entries'} total
+          {totalCount > 0 ? `${totalCount} ${totalCount === 1 ? 'assessment' : 'assessments'} total` : `${records.length} ${records.length === 1 ? 'assessment' : 'assessments'}`}
         </Text>
       </View>
 
@@ -97,17 +92,25 @@ export default function HistoryScreen() {
             />
           }
           stickySectionHeadersEnabled={false}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.loadingMore}>
+                <ActivityIndicator color={Colors.primary} size="small" />
+              </View>
+            ) : null
+          }
           renderSectionHeader={({ section }) => (
             <Text style={styles.monthHeader}>{section.title}</Text>
           )}
-          renderItem={({ item, index, section }) => (
-            <RecordItem
+          renderItem={({ item }) => (
+            <RecordCard
               record={item}
-              isFirst={index === 0}
-              isLast={index === section.data.length - 1}
               onPress={() =>
                 router.push({ pathname: '/report/[id]', params: { id: String(item.id) } })
               }
+              onDelete={() => deleteRecord(item.id)}
             />
           )}
         />
@@ -115,91 +118,6 @@ export default function HistoryScreen() {
     </LinearGradient>
   );
 }
-
-function RecordItem({
-  record,
-  isFirst,
-  isLast,
-  onPress,
-}: {
-  record: HealthRecord;
-  isFirst: boolean;
-  isLast: boolean;
-  onPress: () => void;
-}) {
-  const triage = record.triage;
-  const display = triage ? getTriageDisplay(triage.level, triage.urgency) : null;
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.item,
-        isFirst && styles.itemFirst,
-        isLast && styles.itemLast,
-        pressed && styles.itemPressed,
-      ]}
-    >
-      {/* Triage color stripe */}
-      {display && (
-        <View style={[styles.triageStripe, { backgroundColor: display.colors.dot }]} />
-      )}
-
-      <View style={styles.itemContent}>
-        <View style={styles.itemTop}>
-          <View style={styles.itemDateBlock}>
-            <Text style={styles.itemDate}>{formatDate(record.submitted_at)}</Text>
-            <Text style={styles.itemTime}>{formatTime(record.submitted_at)}</Text>
-          </View>
-          {display && (
-            <View style={[styles.triageBadge, { backgroundColor: display.colors.bg, borderColor: display.colors.border }]}>
-              <Text style={[styles.triageBadgeText, { color: display.colors.text }]}>
-                {display.label}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.vitalsRow}>
-          {record.temperature != null && (
-            <VitalTag icon="thermometer-outline" label={`${record.temperature}°C`} />
-          )}
-          {record.heart_rate != null && (
-            <VitalTag icon="heart-outline" label={`${record.heart_rate} bpm`} />
-          )}
-          {record.spo2 != null && (
-            <VitalTag icon="fitness-outline" label={`${record.spo2}%`} />
-          )}
-          {record.systolic_bp != null && (
-            <VitalTag
-              icon="pulse-outline"
-              label={record.diastolic_bp ? `${record.systolic_bp}/${record.diastolic_bp}` : `${record.systolic_bp} sys`}
-            />
-          )}
-          {record.input_mode === 'descriptive' && (
-            <VitalTag icon="chatbubble-ellipses-outline" label="Description" />
-          )}
-        </View>
-
-        <View style={styles.itemFooter}>
-          <ConfidenceBadge level={record.input_confidence} showDot={false} />
-          <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-function VitalTag({ icon, label }: { icon: any; label: string }) {
-  return (
-    <View style={styles.vitalTag}>
-      <Ionicons name={icon} size={11} color={Colors.textTertiary} />
-      <Text style={styles.vitalTagText}>{label}</Text>
-    </View>
-  );
-}
-
-const RADIUS = Radius.lg;
 
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
@@ -232,6 +150,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 24,
   },
+  loadingMore: { paddingVertical: 20, alignItems: 'center' },
   emptyBtn: {
     backgroundColor: Colors.primaryLight,
     borderRadius: Radius.full,
@@ -251,54 +170,5 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: 20,
     marginBottom: 8,
-  },
-
-  item: {
-    backgroundColor: Colors.surface,
-    flexDirection: 'row',
-    ...Shadows.card,
-    marginBottom: 2,
-  },
-  itemFirst: { borderTopLeftRadius: RADIUS, borderTopRightRadius: RADIUS },
-  itemLast: { borderBottomLeftRadius: RADIUS, borderBottomRightRadius: RADIUS, marginBottom: 0 },
-  itemPressed: { backgroundColor: Colors.surfaceSecondary },
-
-  triageStripe: { width: 4 },
-
-  itemContent: { flex: 1, padding: 16 },
-  itemTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  itemDateBlock: { gap: 2 },
-  itemDate: { fontFamily: Font.sansSemiBold, fontSize: 14, color: Colors.text },
-  itemTime: { fontFamily: Font.sans, fontSize: 12, color: Colors.textTertiary },
-
-  triageBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-  },
-  triageBadgeText: { fontFamily: Font.sansMedium, fontSize: 11 },
-
-  vitalsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
-  vitalTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: Radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  vitalTagText: { fontFamily: Font.sans, fontSize: 12, color: Colors.textSecondary },
-
-  itemFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
 });

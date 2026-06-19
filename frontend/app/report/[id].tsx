@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Pressable,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,7 +16,6 @@ import { useReportStore } from '@/store/reportStore';
 import { useHealthStore } from '@/store/healthStore';
 import { reportService } from '@/services/reportService';
 import { TriageResultCard } from '@/components/ui/TriageResultCard';
-import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
 import { Disclaimer } from '@/components/common/Disclaimer';
 import { Colors } from '@/constants/colors';
 import { Font, TextStyles } from '@/constants/typography';
@@ -29,6 +29,7 @@ import {
   formatDate,
   formatTime,
 } from '@/utils/triage';
+import { pickAccent } from '@/utils/cardAccents';
 import { HealthReport, ReadingsSummary } from '@/types/report';
 
 export default function ReportDetailScreen() {
@@ -44,6 +45,21 @@ export default function ReportDetailScreen() {
   const [report, setLocalReport] = useState<HealthReport | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+
+  const bannerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!loading && report) {
+      Animated.spring(bannerAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 20,
+        stiffness: 180,
+      }).start();
+    }
+  }, [loading, report]);
 
   useEffect(() => {
     if (cached) { setLocalReport(cached); return; }
@@ -61,15 +77,31 @@ export default function ReportDetailScreen() {
       .finally(() => setLoading(false));
   }, [reportId]);
 
+  const handleRetry = async () => {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const updated = await reportService.retryTriage(reportId);
+      setReport(updated);
+      setLocalReport(updated);
+    } catch {
+      setRetryError('Analysis failed again. Please try later.');
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   const triage = report?.triage;
+  const llmFailed = triage ? triage.llm_model_used === null : false;
   const display = triage
     ? getTriageDisplay(triage.triage_level, triage.urgency, triage.hard_rule_triggered)
     : null;
+  const accent = pickAccent(triage?.triage_level, triage?.urgency);
 
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator color={Colors.primary} size="large" />
+        <ActivityIndicator color={accent.dot} size="large" />
         <Text style={styles.loaderText}>Preparing your report...</Text>
       </View>
     );
@@ -81,8 +113,8 @@ export default function ReportDetailScreen() {
         <Ionicons name="alert-circle-outline" size={48} color={Colors.textTertiary} />
         <Text style={styles.errorTitle}>Report unavailable</Text>
         <Text style={styles.errorSub}>{error ?? 'This report could not be found.'}</Text>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>Go back</Text>
+        <Pressable onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: accent.bg, borderColor: accent.border }]}>
+          <Text style={[styles.backBtnText, { color: accent.dot }]}>Go back</Text>
         </Pressable>
       </View>
     );
@@ -97,10 +129,16 @@ export default function ReportDetailScreen() {
           { paddingBottom: insets.bottom + 32 },
         ]}
       >
-        {/* Urgency banner */}
+        {/* Urgency banner — animates in on load */}
         {display && (
+          <Animated.View
+            style={{
+              opacity: bannerAnim,
+              transform: [{ translateY: bannerAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+            }}
+          >
           <LinearGradient
-            colors={[display.colors.dot + 'CC', display.colors.dot + '99']}
+            colors={[accent.dot + 'EE', accent.dark + 'DD']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.urgencyBanner, { paddingTop: insets.top + 16 }]}
@@ -127,6 +165,7 @@ export default function ReportDetailScreen() {
               </View>
             )}
           </LinearGradient>
+          </Animated.View>
         )}
 
         <View style={styles.body}>
@@ -142,7 +181,51 @@ export default function ReportDetailScreen() {
                 recommendation={triage.recommendation_text}
                 followUpFlag={triage.follow_up_flag}
                 followUpHours={triage.follow_up_hours}
+                accent={accent}
               />
+              {llmFailed && (
+                <View style={styles.retryBanner}>
+                  <View style={styles.retryBannerTop}>
+                    <Ionicons name="warning-outline" size={16} color={Colors.textSecondary} />
+                    <Text style={styles.retryBannerText}>
+                      AI analysis was unavailable. The recommendation above is a fallback.
+                    </Text>
+                  </View>
+                  {retryError && (
+                    <Text style={styles.retryErrorText}>{retryError}</Text>
+                  )}
+                  <Pressable
+                    onPress={handleRetry}
+                    disabled={retrying}
+                    style={[styles.retryBtn, { backgroundColor: accent.bg, borderColor: accent.border }]}
+                  >
+                    {retrying
+                      ? <ActivityIndicator size="small" color={accent.dot} />
+                      : (
+                        <>
+                          <Ionicons name="refresh-outline" size={15} color={accent.dot} />
+                          <Text style={[styles.retryBtnText, { color: accent.dark }]}>Retry AI analysis</Text>
+                        </>
+                      )
+                    }
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Symptom description */}
+          {report.symptom_description && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>YOUR DESCRIPTION</Text>
+              <View style={[styles.descriptionCard, { backgroundColor: accent.bg, borderColor: accent.border }]}>
+                <View style={[styles.descriptionIconWrap, { backgroundColor: accent.dot + '20' }]}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={18} color={accent.dot} />
+                </View>
+                <Text style={[styles.descriptionText, { color: accent.dark }]}>
+                  {report.symptom_description}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -161,14 +244,13 @@ export default function ReportDetailScreen() {
               <View style={styles.qualityCard}>
                 <View style={styles.qualityRow}>
                   <Text style={styles.qualityLabel}>Input quality</Text>
-                  <ConfidenceBadge level={triage.confidence_level} />
-                </View>
-                {triage.llm_model_used && (
-                  <View style={[styles.qualityRow, styles.qualityRowBorder]}>
-                    <Text style={styles.qualityLabel}>Analyzed by</Text>
-                    <Text style={styles.qualityValue}>{triage.llm_model_used}</Text>
+                  <View style={[styles.accentPill, { backgroundColor: accent.bg, borderColor: accent.border }]}>
+                    <View style={[styles.accentPillDot, { backgroundColor: accent.dot }]} />
+                    <Text style={[styles.accentPillText, { color: accent.dark }]}>
+                      {triage.confidence_level === 'high' ? 'High quality' : triage.confidence_level === 'medium' ? 'Medium quality' : 'Low quality'}
+                    </Text>
                   </View>
-                )}
+                </View>
                 <View style={[styles.qualityRow, styles.qualityRowBorder]}>
                   <Text style={styles.qualityLabel}>Generated</Text>
                   <Text style={styles.qualityValue}>{formatDate(triage.generated_at)}</Text>
@@ -257,6 +339,46 @@ const styles = StyleSheet.create({
   },
   backBtnText: { fontFamily: Font.sansSemiBold, fontSize: 14, color: Colors.primary },
 
+  retryBanner: {
+    marginTop: 12,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.separatorLight,
+    backgroundColor: Colors.surface,
+    padding: 14,
+    gap: 10,
+    ...Shadows.card,
+  },
+  retryBannerTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  retryBannerText: {
+    fontFamily: Font.sans,
+    fontSize: 13,
+    color: Colors.textSecondary,
+    flex: 1,
+    lineHeight: 19,
+  },
+  retryErrorText: {
+    fontFamily: Font.sans,
+    fontSize: 12,
+    color: '#C0392B',
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    alignSelf: 'flex-start',
+  },
+  retryBtnText: { fontFamily: Font.sansSemiBold, fontSize: 13 },
+
   urgencyBanner: {
     paddingHorizontal: 20,
     paddingBottom: 28,
@@ -306,6 +428,27 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
+  descriptionCard: {
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+    ...Shadows.card,
+  },
+  descriptionIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  descriptionText: {
+    fontFamily: Font.sans,
+    fontSize: 15,
+    lineHeight: 23,
+  },
+
   qualityCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
@@ -325,6 +468,18 @@ const styles = StyleSheet.create({
   },
   qualityLabel: { fontFamily: Font.sans, fontSize: 14, color: Colors.textSecondary },
   qualityValue: { fontFamily: Font.sansMedium, fontSize: 14, color: Colors.text },
+
+  accentPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 9999,
+    borderWidth: 1,
+  },
+  accentPillDot: { width: 6, height: 6, borderRadius: 3 },
+  accentPillText: { fontFamily: Font.sansMedium, fontSize: 12 },
 
   readingsCard: {
     backgroundColor: Colors.surface,

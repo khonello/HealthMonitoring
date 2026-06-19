@@ -39,7 +39,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="input"
         options={{
-          title: 'Log',
+          title: 'Check In',
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
               name={focused ? 'add-circle' : 'add-circle-outline'}
@@ -52,7 +52,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: 'History',
+          title: 'Records',
           tabBarIcon: ({ focused, color }) => (
             <Ionicons name={focused ? 'time' : 'time-outline'} size={24} color={color} />
           ),
@@ -70,10 +70,6 @@ export default function TabLayout() {
             />
           ),
         }}
-      />
-      <Tabs.Screen
-        name="report"
-        options={{ href: null }}
       />
     </Tabs>
   );

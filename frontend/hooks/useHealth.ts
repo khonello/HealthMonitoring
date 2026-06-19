@@ -6,20 +6,42 @@ import { HealthSubmitPayload } from '@/types/health';
 
 export function useHealth() {
   const router = useRouter();
-  const { setRecords, setLastSubmit, setLoading, setError } = useHealthStore();
+  const {
+    nextPageUrl,
+    setRecords,
+    appendRecords,
+    removeRecord,
+    setLastSubmit,
+    setLoading,
+    setLoadingMore,
+    setError,
+  } = useHealthStore();
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const records = await healthService.getHistory();
-      setRecords(records);
+      const page = await healthService.getHistory();
+      setRecords(page.results, page.count, page.next);
     } catch (e: any) {
       setError(e?.response?.data?.detail ?? 'Failed to load history.');
     } finally {
       setLoading(false);
     }
   }, [setRecords, setLoading, setError]);
+
+  const fetchMoreHistory = useCallback(async () => {
+    if (!nextPageUrl) return;
+    setLoadingMore(true);
+    try {
+      const page = await healthService.getHistory(nextPageUrl);
+      appendRecords(page.results, page.count, page.next);
+    } catch {
+      // silently ignore — list still shows cached records
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextPageUrl, appendRecords, setLoadingMore]);
 
   const submit = useCallback(
     async (payload: HealthSubmitPayload) => {
@@ -44,5 +66,18 @@ export function useHealth() {
     [setLastSubmit, setLoading, setError, router]
   );
 
-  return { fetchHistory, submit };
+  const deleteRecord = useCallback(
+    async (id: number) => {
+      removeRecord(id);
+      try {
+        await healthService.deleteRecord(id);
+      } catch {
+        // if the API call fails, re-fetch to restore accurate state
+        fetchHistory();
+      }
+    },
+    [removeRecord, fetchHistory]
+  );
+
+  return { fetchHistory, fetchMoreHistory, submit, deleteRecord };
 }

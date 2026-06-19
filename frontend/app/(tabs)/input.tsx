@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ModeToggle } from '@/components/ui/ModeToggle';
 import { HealthInputField } from '@/components/ui/HealthInputField';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
@@ -19,6 +18,7 @@ import { SparseInputNudge } from '@/components/ui/SparseInputNudge';
 import { Disclaimer } from '@/components/common/Disclaimer';
 import { useHealth } from '@/hooks/useHealth';
 import { useHealthStore } from '@/store/healthStore';
+import { isTodayRecord } from '@/utils/triage';
 import { Colors } from '@/constants/colors';
 import { Font, TextStyles } from '@/constants/typography';
 import { Radius } from '@/constants/radius';
@@ -32,8 +32,6 @@ import {
   parseInt_,
 } from '@/utils/validation';
 import { InputConfidence } from '@/types/health';
-
-type Mode = 'structured' | 'descriptive';
 
 function tempStatus(v: string) {
   const n = parseFloat(v);
@@ -64,12 +62,23 @@ function bpStatus(v: string) {
   return 'normal' as const;
 }
 
+function useFollowUpReminder() {
+  const { records } = useHealthStore();
+  const last = records[0] ?? null;
+  if (!last?.triage?.follow_up_flag || !last.triage.follow_up_in_hours) return null;
+  if (isTodayRecord(last.submitted_at)) return null;
+  const submittedMs = new Date(last.submitted_at).getTime();
+  const windowMs = last.triage.follow_up_in_hours * 60 * 60 * 1000;
+  if (Date.now() > submittedMs + windowMs) return null;
+  return last.triage.follow_up_in_hours;
+}
+
 export default function InputScreen() {
   const insets = useSafeAreaInsets();
   const { submit } = useHealth();
   const { isLoading, error } = useHealthStore();
+  const followUpHours = useFollowUpReminder();
 
-  const [mode, setMode] = useState<Mode>('structured');
   const [temperature, setTemperature] = useState('');
   const [heartRate, setHeartRate] = useState('');
   const [spo2, setSpo2] = useState('');
@@ -105,6 +114,16 @@ export default function InputScreen() {
     return Object.keys(withErrors).length === 0;
   };
 
+  const resetForm = () => {
+    setTemperature('');
+    setHeartRate('');
+    setSpo2('');
+    setSystolic('');
+    setDiastolic('');
+    setSymptoms('');
+    setFieldErrors({});
+  };
+
   const handleSubmit = async () => {
     if (!hasAnyInput) {
       Alert.alert('No data entered', 'Please fill in at least one vital or describe your symptoms.');
@@ -120,14 +139,12 @@ export default function InputScreen() {
         diastolic_bp: diastolic.trim() ? parseInt_(diastolic) : null,
         symptom_description: symptoms.trim() || null,
       });
+      resetForm();
     } catch {
       // error is in store, shown via Alert
       if (error) Alert.alert('Submission Failed', error);
     }
   };
-
-  const showStructured = mode === 'structured';
-  const showDescriptive = mode === 'descriptive';
 
   return (
     <LinearGradient colors={['#F0F4FF', '#FFFFFF']} style={styles.gradient}>
@@ -143,95 +160,105 @@ export default function InputScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={TextStyles.h1}>Log Vitals</Text>
-            <Text style={styles.headerSub}>How are you feeling today?</Text>
-          </View>
-
-          {/* Mode toggle */}
-          <View style={styles.toggleWrap}>
-            <ModeToggle value={mode} onChange={setMode} />
-          </View>
-
-          {/* Structured inputs */}
-          {showStructured && (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>VITAL SIGNS</Text>
-              <HealthInputField
-                label="Temperature"
-                value={temperature}
-                onChangeText={setTemperature}
-                unit="°C"
-                placeholder="36.5"
-                hint="Normal: 36.1 – 37.2 °C"
-                status={tempStatus(temperature)}
-                error={fieldErrors.temperature ?? null}
-                icon="thermometer-outline"
-              />
-              <HealthInputField
-                label="Heart Rate"
-                value={heartRate}
-                onChangeText={setHeartRate}
-                unit="bpm"
-                placeholder="72"
-                hint="Normal: 60 – 100 bpm"
-                status={hrStatus(heartRate)}
-                error={fieldErrors.heartRate ?? null}
-                icon="heart-outline"
-              />
-              <HealthInputField
-                label="Blood Oxygen (SpO₂)"
-                value={spo2}
-                onChangeText={setSpo2}
-                unit="%"
-                placeholder="98"
-                hint="Normal: 95 – 100%"
-                status={spo2Status(spo2)}
-                error={fieldErrors.spo2 ?? null}
-                icon="fitness-outline"
-              />
-              <HealthInputField
-                label="Blood Pressure"
-                value={systolic}
-                onChangeText={setSystolic}
-                unit="mmHg"
-                placeholder="120"
-                hint="Normal systolic: 90 – 120 mmHg"
-                status={bpStatus(systolic)}
-                error={fieldErrors.systolic ?? null}
-                icon="pulse-outline"
-                secondValue={diastolic}
-                secondPlaceholder="80"
-                onSecondChangeText={setDiastolic}
-              />
-            </View>
-          )}
-
-          {/* Descriptive input */}
-          {showDescriptive && (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>SYMPTOMS</Text>
-              <View style={styles.textAreaCard}>
-                <TextInput
-                  value={symptoms}
-                  onChangeText={setSymptoms}
-                  multiline
-                  numberOfLines={6}
-                  textAlignVertical="top"
-                  placeholder="Describe how you're feeling — any pain, discomfort, fatigue, or other symptoms you've noticed..."
-                  placeholderTextColor={Colors.placeholder}
-                  style={styles.textArea}
-                />
-                <Text style={styles.wordCount}>
-                  {symptoms.trim().split(/\s+/).filter(Boolean).length} words
-                  {symptoms.trim().split(/\s+/).filter(Boolean).length < 10 && (
-                    <Text style={styles.wordCountHint}> · aim for 10+</Text>
-                  )}
+          {/* Follow-up reminder */}
+          {followUpHours != null && (
+            <View style={styles.followUpBanner}>
+              <Ionicons name="time-outline" size={16} color={Colors.caution.text} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.followUpTitle}>Follow-up check-in</Text>
+                <Text style={styles.followUpSub}>
+                  Your last assessment recommended a follow-up within {followUpHours}h — this is it.
                 </Text>
               </View>
             </View>
           )}
+
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={TextStyles.h1}>Health Check</Text>
+            <Text style={styles.headerSub}>Enter your vitals for an AI triage assessment</Text>
+          </View>
+
+          {/* Vital signs */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>VITAL SIGNS</Text>
+            <HealthInputField
+              label="Temperature"
+              value={temperature}
+              onChangeText={setTemperature}
+              unit="°C"
+              placeholder="36.5"
+              hint="Normal: 36.1 – 37.2 °C"
+              status={tempStatus(temperature)}
+              error={fieldErrors.temperature ?? null}
+              icon="thermometer-outline"
+            />
+            <HealthInputField
+              label="Heart Rate"
+              value={heartRate}
+              onChangeText={setHeartRate}
+              unit="bpm"
+              placeholder="72"
+              hint="Normal: 60 – 100 bpm"
+              status={hrStatus(heartRate)}
+              error={fieldErrors.heartRate ?? null}
+              icon="heart-outline"
+            />
+            <HealthInputField
+              label="Blood Oxygen (SpO₂)"
+              value={spo2}
+              onChangeText={setSpo2}
+              unit="%"
+              placeholder="98"
+              hint="Normal: 95 – 100%"
+              status={spo2Status(spo2)}
+              error={fieldErrors.spo2 ?? null}
+              icon="fitness-outline"
+            />
+            <HealthInputField
+              label="Blood Pressure"
+              value={systolic}
+              onChangeText={setSystolic}
+              unit="mmHg"
+              placeholder="120"
+              hint="Normal: 90-120 / 60-80 mmHg"
+              status={bpStatus(systolic)}
+              error={fieldErrors.systolic ?? null}
+              icon="pulse-outline"
+              secondValue={diastolic}
+              secondPlaceholder="80"
+              onSecondChangeText={setDiastolic}
+            />
+          </View>
+
+          {/* Symptom description */}
+          <View style={styles.section}>
+            <View style={styles.sectionLabelRow}>
+              <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>SYMPTOMS</Text>
+              <Text style={styles.sectionHint}>recommended</Text>
+            </View>
+            <Text style={styles.sectionSub}>
+              Describe how you're feeling alongside your vitals for a more accurate assessment.
+            </Text>
+            <View style={styles.textAreaCard}>
+              <TextInput
+                value={symptoms}
+                onChangeText={setSymptoms}
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+                placeholder="Any pain, discomfort, fatigue, or other symptoms you've noticed..."
+                placeholderTextColor={Colors.placeholder}
+                style={styles.textArea}
+              />
+              <Text style={styles.wordCount}>
+                {symptoms.trim().split(/\s+/).filter(Boolean).length} words
+                {symptoms.trim().split(/\s+/).filter(Boolean).length < 10 && (
+                  <Text style={styles.wordCountHint}> · aim for 10+</Text>
+                )}
+              </Text>
+            </View>
+          </View>
 
           {/* Confidence */}
           <View style={styles.qualityRow}>
@@ -274,16 +301,47 @@ const styles = StyleSheet.create({
   gradient: { flex: 1 },
   kav: { flex: 1 },
   scroll: { paddingHorizontal: Spacing.screenH },
+  followUpBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: Colors.caution.bg,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.caution.border,
+    padding: 14,
+    marginBottom: 16,
+  },
+  followUpTitle: { fontFamily: Font.sansSemiBold, fontSize: 13, color: Colors.caution.dark, marginBottom: 2 },
+  followUpSub: { fontFamily: Font.sans, fontSize: 12, color: Colors.caution.text, lineHeight: 18 },
   header: { marginBottom: Spacing.lg },
   headerSub: { fontFamily: Font.sans, fontSize: 15, color: Colors.textSecondary, marginTop: 4 },
-  toggleWrap: { marginBottom: Spacing.lg },
   section: { marginBottom: Spacing.md },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   sectionLabel: {
     fontFamily: Font.sansSemiBold,
     fontSize: 11,
     letterSpacing: 1.1,
     color: Colors.textTertiary,
     textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  sectionHint: {
+    fontFamily: Font.sans,
+    fontSize: 11,
+    color: Colors.primary,
+    textTransform: 'lowercase',
+  },
+  sectionSub: {
+    fontFamily: Font.sans,
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 19,
     marginBottom: 10,
   },
   textAreaCard: {

@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -14,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
 import { useHealthStore } from '@/store/healthStore';
 import { useAuth } from '@/hooks/useAuth';
+import { healthService } from '@/services/healthService';
 import { Colors } from '@/constants/colors';
 import { Font, TextStyles } from '@/constants/typography';
 import { Radius } from '@/constants/radius';
@@ -51,6 +53,22 @@ export default function ProfileScreen() {
   const { records } = useHealthStore();
   const { logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const data = await healthService.exportData();
+      await Share.share({
+        title: 'Health Records Export',
+        message: JSON.stringify(data, null, 2),
+      });
+    } catch {
+      Alert.alert('Export Failed', 'Could not export your health records. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -107,7 +125,7 @@ export default function ProfileScreen() {
 
         {/* Stats row */}
         <View style={styles.statsRow}>
-          <StatCard label="Total Logs" value={String(records.length)} icon="document-text-outline" />
+          <StatCard label="Assessments" value={String(records.length)} icon="pulse-outline" />
           <StatCard
             label="This Month"
             value={String(
@@ -120,9 +138,9 @@ export default function ProfileScreen() {
             icon="calendar-outline"
           />
           <StatCard
-            label="High Quality"
-            value={String(records.filter((r) => r.input_confidence === 'high').length)}
-            icon="star-outline"
+            label="Normal Results"
+            value={String(records.filter((r) => r.triage?.level === 'rest_at_home').length)}
+            icon="checkmark-circle-outline"
           />
         </View>
 
@@ -139,14 +157,25 @@ export default function ProfileScreen() {
           <InfoRow label="Member Since" value={joined} icon="time-outline" last />
         </Section>
 
-        {/* About */}
-        <Section title="About">
+        {/* Data */}
+        <Section title="Data">
+          <ActionRow
+            label={exporting ? 'Exporting...' : 'Export Health Records'}
+            icon="download-outline"
+            onPress={handleExport}
+            accessibilityLabel="Export all health records as JSON"
+          />
           <ActionRow
             label="Privacy & Disclaimer"
             icon="shield-checkmark-outline"
             onPress={() => {}}
+            last
           />
-          <ActionRow label="App Version" icon="information-circle-outline" value="1.0.0" last />
+        </Section>
+
+        {/* About */}
+        <Section title="About">
+          <ActionRow label="App Version" icon="information-circle-outline" value="1.0.0" onPress={() => {}} last />
         </Section>
 
         {/* Logout */}
@@ -216,16 +245,20 @@ function ActionRow({
   value,
   onPress,
   last,
+  accessibilityLabel,
 }: {
   label: string;
   icon: any;
   value?: string;
   onPress: () => void;
   last?: boolean;
+  accessibilityLabel?: string;
 }) {
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
       style={({ pressed }) => [styles.row, !last && styles.rowBorder, pressed && styles.rowPressed]}
     >
       <View style={styles.rowIconWrap}>
