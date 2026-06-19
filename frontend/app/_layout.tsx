@@ -26,9 +26,10 @@ function RootLayoutNav() {
   useEffect(() => {
     if (!isHydrated) return;
     const inAuth = segments[0] === '(auth)';
+    const inTabs = segments[0] === '(tabs)';
     if (!user && !inAuth) {
       router.replace('/(auth)/login');
-    } else if (user && inAuth) {
+    } else if (user && !inTabs) {
       router.replace('/(tabs)');
     }
   }, [user, isHydrated, segments]);
@@ -59,7 +60,7 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     DMSans_300Light,
     DMSans_400Regular,
     DMSans_500Medium,
@@ -69,7 +70,7 @@ export default function RootLayout() {
     DMSerifDisplay_400Italic,
   });
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded && !fontError) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={Colors.primary} size="large" />

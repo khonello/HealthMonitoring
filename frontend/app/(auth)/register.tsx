@@ -77,10 +77,16 @@ export default function RegisterScreen() {
         gender: gender || undefined,
       });
     } catch (e: any) {
+      console.log('Register error:', JSON.stringify(e?.response?.data ?? e?.message));
+      const data = e?.response?.data;
       const msg =
-        e?.response?.data?.email?.[0] ??
-        e?.response?.data?.non_field_errors?.[0] ??
-        e?.response?.data?.detail ??
+        data?.email?.[0] ??
+        data?.password?.[0] ??
+        data?.full_name?.[0] ??
+        data?.non_field_errors?.[0] ??
+        data?.detail ??
+        (typeof data === 'string' ? data : null) ??
+        (e?.message === 'Network Error' ? 'Cannot reach server. Is the backend running?' : null) ??
         'Registration failed. Please try again.';
       Alert.alert('Registration Failed', msg);
     } finally {

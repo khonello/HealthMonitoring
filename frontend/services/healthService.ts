@@ -12,7 +12,7 @@ export const healthService = {
   },
 
   async getHistory(): Promise<HealthRecord[]> {
-    const { data } = await api.get<HealthRecord[]>('/api/health/history/');
-    return data;
+    const { data } = await api.get<{ results: HealthRecord[] } | HealthRecord[]>('/api/health/history/');
+    return Array.isArray(data) ? data : data.results;
   },
 };
