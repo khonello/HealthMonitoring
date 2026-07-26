@@ -7,6 +7,7 @@ export interface User {
   date_of_birth: string | null;
   gender: Gender;
   created_at: string;
+  is_staff: boolean;
 }
 
 export interface LoginPayload {

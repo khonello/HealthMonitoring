@@ -1,7 +1,7 @@
-import { Colors } from '@/constants/colors';
+import { Colors, Palette } from '@/constants/colors';
 import { TriageLevel, UrgencyLevel } from '@/types/health';
 
-export type CardAccent = typeof Colors.normal;
+export type CardAccent = Palette;
 
 export function pickAccent(level?: TriageLevel | null, urgency?: UrgencyLevel | null): CardAccent {
   if (!level) return Colors.normal;

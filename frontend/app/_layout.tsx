@@ -12,7 +12,7 @@ import {
 } from '@expo-google-fonts/dm-sans';
 import {
   DMSerifDisplay_400Regular,
-  DMSerifDisplay_400Italic,
+  DMSerifDisplay_400Regular_Italic,
 } from '@expo-google-fonts/dm-serif-display';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '@/store/authStore';
@@ -30,13 +30,22 @@ function RootLayoutNav() {
     const inAuth = segments[0] === '(auth)';
     const inTabs = segments[0] === '(tabs)';
     const inOnboarding = segments[0] === 'onboarding';
-    const inApp = inTabs || segments[0] === 'report' || segments[0] === 'metric' || segments[0] === 'alert' || segments[0] === 'profile';
+    const inAdmin = segments[0] === 'admin';
+    const inApp = inTabs || segments[0] === 'report' || segments[0] === 'metric' || segments[0] === 'alert' || segments[0] === 'profile' || segments[0] === 'feedback' || inAdmin;
 
-    if (!user && !inAuth) {
-      router.replace('/(auth)/login');
-    } else if (user && !onboardingDone && !inOnboarding) {
-      router.replace('/onboarding');
-    } else if (user && onboardingDone && !inApp) {
+    if (!user) {
+      // Signed out: show the informational onboarding first (every cold start,
+      // since the store is session-scoped), then fall through to sign-in.
+      if (!onboardingDone && !inOnboarding) {
+        router.replace('/onboarding');
+      } else if (onboardingDone && !inAuth) {
+        router.replace('/(auth)/login');
+      }
+    } else if (user.is_staff) {
+      // Admins live entirely in the admin app — never the regular tabs.
+      if (!inAdmin) router.replace('/admin');
+    } else if (inAdmin || !inApp) {
+      // Regular signed-in user: kept out of admin, landed in the tabs.
       router.replace('/(tabs)');
     }
   }, [user, isHydrated, onboardingDone, segments]);
@@ -63,6 +72,11 @@ function RootLayoutNav() {
         name="profile/edit"
         options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
       />
+      <Stack.Screen
+        name="feedback"
+        options={{ animation: 'slide_from_right', gestureEnabled: true }}
+      />
+      <Stack.Screen name="admin" options={{ animation: 'fade' }} />
     </Stack>
   );
 }
@@ -75,7 +89,7 @@ export default function RootLayout() {
     DMSans_600SemiBold,
     DMSans_700Bold,
     DMSerifDisplay_400Regular,
-    DMSerifDisplay_400Italic,
+    DMSerifDisplay_400Regular_Italic,
   });
 
   if (!fontsLoaded && !fontError) {

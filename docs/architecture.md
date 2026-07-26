@@ -3,7 +3,7 @@
 ## Architecture Document
 
 **Project:** Mobile Health Triage System
-**Stack:** React Native (Frontend) · Django REST Framework (Backend) · PostgreSQL · Anthropic Claude (LLM)
+**Stack:** React Native / Expo (Frontend) · Django REST Framework (Backend) · PostgreSQL · Groq (LLM)
 **Institution:** Koforidua Technical University — Final Year Project
 
 -----
@@ -33,9 +33,11 @@ React Native App (iOS & Android)
       ├── accounts app       → auth, user profile
       ├── health_records app → receive, validate, store submissions
       ├── triage app         → build prompt, call LLM, parse response
-      └── reports app        → assemble final report, persist, return to client
+      ├── reports app        → assemble final report, persist, return to client
+      ├── admin_panel app    → staff oversight, safety config, LLM health
+      └── feedback app       → user feedback capture and staff triage
          ↓                          ↓
-    Anthropic Claude API       PostgreSQL
+        Groq API                PostgreSQL
 ```
 
 -----
@@ -96,7 +98,7 @@ This is the highest-confidence input mode as it gives the LLM both objective mea
          ↓
 5. Django runs hard rule checks against critical thresholds
 
-   ┌─ Hard rule fires (e.g. SpO2 < 90%, temp > 40°C)
+   ┌─ Hard rule fires (thresholds read from SafetyThreshold, admin-editable)
    │    → triage_level locked to "see_doctor", urgency "high"
    │    → LLM called immediately after with override prompt
    │      (explain WHY this reading is dangerous, contextualised
@@ -105,9 +107,9 @@ This is the highest-confidence input mode as it gives the LLM both objective mea
    └─ No hard rule fires
         → Normal triage prompt built from record + user profile
          ↓
-6. Prompt sent to Claude API (either override explanation or standard triage)
+6. Prompt sent to Groq API (either override explanation or standard triage)
          ↓
-7. Claude returns recommendation text
+7. LLM returns recommendation text
          ↓
 8. Django parses response, saves TriageResult and HealthReport
          ↓
@@ -127,13 +129,16 @@ backend/
 │   │
 │   ├── accounts/                    # User auth and profile
 │   │   ├── migrations/
+│   │   ├── management/
+│   │   │   └── commands/
+│   │   │       └── seed_demo_data.py  # Test fixtures — see docs/test-accounts.md
 │   │   ├── __init__.py
 │   │   ├── admin.py
 │   │   ├── apps.py
 │   │   ├── models.py                # User profile (age, gender)
 │   │   ├── serializers.py
 │   │   ├── urls.py
-│   │   └── views.py                 # Register, login, token refresh
+│   │   └── views.py                 # Register, login, token refresh, profile
 │   │
 │   ├── health_records/              # Health data submission and storage
 │   │   ├── migrations/
@@ -151,19 +156,43 @@ backend/
 │   │   ├── admin.py
 │   │   ├── apps.py
 │   │   ├── prompt_builder.py        # Builds LLM prompt from record + profile
-│   │   ├── llm_client.py            # Anthropic API call
+│   │   ├── llm_client.py            # Groq API call (timeout + retry config)
 │   │   ├── response_parser.py       # Parse and validate LLM response
-│   │   └── rules.py                 # Hard threshold overrides
+│   │   ├── rules.py                 # Hard threshold overrides
+│   │   └── tests.py                 # Hard-rule boundaries, parser edge cases
 │   │
-│   └── reports/                     # Report assembly and retrieval
+│   ├── reports/                     # Report assembly and retrieval
+│   │   ├── migrations/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── assembler.py             # Readings summary + disclaimer resolution
+│   │   ├── models.py                # TriageResult, HealthReport
+│   │   ├── serializers.py
+│   │   ├── urls.py
+│   │   └── views.py                 # Retrieve reports, retry triage
+│   │
+│   ├── admin_panel/                 # Staff-only oversight and configuration
+│   │   ├── migrations/              # Includes safety threshold seed data
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── models.py                # LLMFailureLog, SafetyThreshold, SystemConfig
+│   │   ├── serializers.py
+│   │   ├── urls.py
+│   │   └── views.py                 # Summary, triage oversight, users, config
+│   │
+│   └── feedback/                    # User feedback capture and staff triage
 │       ├── migrations/
 │       ├── __init__.py
 │       ├── admin.py
+│       ├── admin_urls.py            # Staff routes, mounted under /api/admin/
 │       ├── apps.py
-│       ├── models.py                # TriageResult, HealthReport
+│       ├── models.py                # Feedback
 │       ├── serializers.py
-│       ├── urls.py
-│       └── views.py                 # Retrieve reports and history
+│       ├── urls.py                  # User routes, mounted under /api/
+│       ├── views.py
+│       └── tests.py
 │
 ├── configs/                         # Project-level configuration
 │   ├── __init__.py
@@ -195,7 +224,8 @@ backend/
 - **`configs/`** — replaces the default Django `<project_name>/` inner folder. Holds all project-level settings, URL routing, and server entry points.
 - **`configs/settings/`** — settings are split across three files rather than one. `base.py` holds everything shared; `development.py` and `production.py` inherit from it and override only what changes between environments. The active settings file is selected via the `DJANGO_SETTINGS_MODULE` environment variable.
 - **`logs/`** — log output directory, excluded from version control via `.gitignore`. The `.gitkeep` file ensures the folder is tracked by Git so the directory exists on fresh clones.
-- **`.env` / `.env.example`** — sensitive values (secret key, database URL, Anthropic API key) live in `.env`, which is never committed. `.env.example` documents every required variable with placeholder values so any developer can get set up quickly.
+- **`.env` / `.env.example`** — sensitive values (secret key, database URL, Groq API key) live in `.env`, which is never committed. `.env.example` documents every required variable with placeholder values so any developer can get set up quickly.
+- **`apps/accounts/management/commands/seed_demo_data.py`** — creates the `@health.test` fixture accounts used for manual and QA testing. Documented in [test-accounts.md](test-accounts.md).
 
 -----
 
@@ -274,19 +304,90 @@ HealthReport
 └── generated_at
 ```
 
+### Feedback
+
+```
+Feedback
+├── id
+├── user                    (FK → User, CASCADE)
+├── health_record           (FK → HealthRecord, nullable, SET_NULL)
+├── category                (triage_accuracy | bug | usability | suggestion | other)
+├── message
+├── rating                  (1–5, nullable)
+├── app_version             ← captured from the client
+├── platform                ← captured from the client
+├── status                  (new | reviewed | resolved)   ← staff-only
+├── admin_note              (internal, never returned to the submitter)
+└── created_at / updated_at
+```
+
+`health_record` uses `SET_NULL` rather than `CASCADE` on purpose: deleting a record
+must not erase a user's report that its triage was wrong. Staff can edit only
+`status` and `admin_note` — the submitted message is immutable to preserve the
+integrity of the report.
+
+### Admin Panel Models
+
+```
+LLMFailureLog                       SafetyThreshold
+├── id                              ├── id
+├── health_record (FK, nullable)    ├── metric            (unique)
+├── source        (triage |         ├── operator          (gt | lt | outside_range)
+│                  retry |          ├── value
+│                  health_tip)      ├── value_high        (nullable)
+├── error_type                      ├── description
+├── error_message                   └── updated_at
+└── occurred_at
+
+SystemConfig
+├── id
+├── key              ← e.g. "disclaimer_text"
+├── value
+└── updated_at
+```
+
+`SafetyThreshold` makes the hard-rule thresholds editable by staff at runtime.
+`apps/triage/rules.py` falls back to hard-coded defaults if a metric has no row, so
+an empty or misconfigured table can never silently disable safety gating.
+
 -----
 
 ## 7. API Endpoints
 
-|Method|Endpoint                  |Description                                           |
-|------|--------------------------|------------------------------------------------------|
-|POST  |`/api/auth/register/`     |Create a new user account                             |
-|POST  |`/api/auth/login/`        |Return JWT access + refresh tokens                    |
-|POST  |`/api/auth/token/refresh/`|Refresh access token                                  |
-|POST  |`/api/health/submit/`     |Submit health data (structured, descriptive, or mixed)|
-|GET   |`/api/health/history/`    |Paginated list of past submissions                    |
-|GET   |`/api/reports/latest/`    |Most recent health report                             |
-|GET   |`/api/reports/<id>/`      |Specific report by ID                                 |
+### Authenticated user
+
+|Method    |Endpoint                  |Description                                           |
+|----------|--------------------------|------------------------------------------------------|
+|POST      |`/api/auth/register/`     |Create a new user account                             |
+|POST      |`/api/auth/login/`        |Return JWT access + refresh tokens                    |
+|POST      |`/api/auth/token/refresh/`|Refresh access token                                  |
+|GET/PATCH |`/api/auth/profile/`      |Read or update the signed-in user's profile           |
+|POST      |`/api/health/submit/`     |Submit health data (structured, descriptive, or mixed)|
+|GET       |`/api/health/history/`    |Paginated list of past submissions                    |
+|GET       |`/api/health/export/`     |All records, unpaginated, for data export             |
+|GET       |`/api/health/tip/`        |LLM-generated health tip                              |
+|DELETE    |`/api/health/<id>/`       |Delete one of your own records                        |
+|GET       |`/api/reports/latest/`    |Most recent health report                             |
+|GET       |`/api/reports/<id>/`      |Specific report by ID                                 |
+|POST      |`/api/reports/<id>/retry/`|Re-run triage when the first LLM call fell back       |
+|GET/POST  |`/api/feedback/`          |List your own feedback, or submit new feedback        |
+
+### Staff only (`IsAdminUser`)
+
+|Method    |Endpoint                              |Description                              |
+|----------|--------------------------------------|-----------------------------------------|
+|GET       |`/api/admin/summary/`                 |Dashboard counters                       |
+|GET       |`/api/admin/triage/`                  |Triage oversight, filterable             |
+|GET       |`/api/admin/llm/failures/`            |LLM failure log                          |
+|GET       |`/api/admin/llm/stats/`               |Failure counts by source and error type  |
+|GET       |`/api/admin/users/`                   |User list, searchable                    |
+|GET       |`/api/admin/users/<id>/`              |User detail with records and failures    |
+|PATCH     |`/api/admin/users/<id>/deactivate/`   |Toggle a user's active state             |
+|GET       |`/api/admin/config/thresholds/`       |List safety thresholds                   |
+|GET/PATCH |`/api/admin/config/thresholds/<id>/`  |Read or edit one threshold               |
+|GET/PATCH |`/api/admin/config/disclaimer/`       |Read or edit the report disclaimer       |
+|GET       |`/api/admin/feedback/`                |Feedback queue, filterable by status/category|
+|GET/PATCH |`/api/admin/feedback/<id>/`           |Read, or set status and internal note    |
 
 ### Sample Request — Structured Entry
 
@@ -338,12 +439,21 @@ POST /api/health/submit/
 
 ## 8. LLM Triage Service
 
-### Why Claude (Anthropic)
+### Provider: Groq
 
-- Conservative by default in health contexts — appropriate failure mode for triage
+The project runs `llama-3.3-70b-versatile` through Groq (`apps/triage/llm_client.py`),
+configured via `GROQ_API_KEY` and `GROQ_MODEL`.
+
+- Very low inference latency, which matters because triage sits on the request path
+- Generous free tier — important for a student project
 - Handles both structured vitals and free-text descriptions naturally
 - Explains reasoning in plain, non-clinical language
 - No training data required from the project team
+
+The client sets a 15-second timeout and 2 retries (`GROQ_TIMEOUT_SECONDS`,
+`GROQ_MAX_RETRIES`). Triage fails fast rather than leaving a mobile user on a
+spinner — the caller's fallback recommendation takes over, the failure is written to
+`LLMFailureLog`, and the user can re-run it via `POST /api/reports/<id>/retry/`.
 
 ### Prompt Strategy by Input Mode
 
@@ -372,12 +482,20 @@ POST /api/health/submit/
 
 These thresholds lock the triage decision to “See a Doctor” immediately, before the LLM determines the outcome:
 
-|Metric     |Critical Threshold|
+|Metric     |Default Threshold |
 |-----------|------------------|
 |Temperature|> 40°C            |
 |SpO2       |< 90%             |
 |Heart Rate |< 40 or > 150 bpm |
 |Systolic BP|> 180 mmHg        |
+
+These are **defaults, not constants** — each lives in a `SafetyThreshold` row that
+staff can edit from the admin panel. The values above are the fallbacks used when a
+metric has no row.
+
+Metrics are checked in the order `temperature → spo2 → heart_rate → systolic_bp`
+(`_METRIC_ORDER` in `apps/triage/rules.py`) and **the first match wins**, so a
+reading that breaches two thresholds is attributed to the higher-priority metric.
 
 When a hard rule fires, the triage level is determined instantly without waiting for the LLM. However, **the LLM is still called immediately after** — not to decide the outcome, but to generate a personalised explanation of why the reading is dangerous, contextualised to everything else the user submitted (other vitals, description, age, gender).
 
@@ -403,31 +521,59 @@ The override is logged in `TriageResult.prompt_sent` as `"hard_rule_override: <m
 
 ### Screen Structure
 
+Routing is file-based via **Expo Router** — the directory layout *is* the navigation
+tree.
+
 ```
-App
-├── AuthStack
-│   ├── LoginScreen
-│   └── RegisterScreen
-└── AppStack
-    ├── HomeScreen          → Dashboard: last report, quick submit button
-    ├── InputScreen
-    │   ├── Mode toggle: [Log Readings] [Describe Symptoms]
-    │   ├── StructuredForm  → nullable number fields
-    │   ├── DescriptiveForm → plain text area
-    │   └── Mixed option    → both sections visible
-    ├── ReportScreen        → Triage result, recommendation, disclaimer
-    └── HistoryScreen       → Past submissions and reports
+frontend/app/
+├── _layout.tsx             → Root stack + auth/onboarding/admin routing guard
+├── index.tsx
+├── onboarding.tsx          → 3-page intro, ends on the "not a diagnosis" page
+│
+├── (auth)/                 → Signed-out group
+│   ├── login.tsx
+│   └── register.tsx
+│
+├── (tabs)/                 → Signed-in, non-staff
+│   ├── index.tsx           → Dashboard: triage-first hero card, vitals grid
+│   ├── input.tsx           → Vitals + symptom entry, live confidence badge
+│   ├── history.tsx         → SectionList with infinite scroll
+│   └── profile.tsx         → Settings: profile, data export, support, sign out
+│
+├── report/[id].tsx         → Triage result, recommendation, disclaimer
+├── metric/[name].tsx       → Single-metric trend detail
+├── profile/edit.tsx        → Modal profile editor
+├── feedback.tsx            → Submit feedback + your past submissions
+├── alert.tsx               → Full-screen critical alert
+│
+└── admin/                  → Staff only
+    ├── index.tsx           → Dashboard tiles
+    ├── triage.tsx          → Triage oversight
+    ├── llm-health.tsx      → LLM failure stats
+    ├── config.tsx          → Safety thresholds + disclaimer
+    ├── feedback.tsx        → Feedback queue and triage
+    └── users/              → index.tsx, [id].tsx
 ```
+
+**Routing guard.** `app/_layout.tsx` enforces three rules: signed-out users see
+onboarding then login; **staff users are redirected into `/admin` and never see the
+tabs**; regular users are kept out of `/admin`. Any new top-level route must be added
+to the `inApp` allowlist or the guard will bounce users back to the tabs.
 
 ### Key Libraries
 
 |Library                     |Purpose                        |
 |----------------------------|-------------------------------|
+|`expo-router`               |File-based navigation          |
 |`axios`                     |HTTP client for API calls      |
 |`expo-secure-store`         |Secure JWT token storage       |
-|`react-navigation`          |Screen navigation              |
 |`zustand`                   |Lightweight state management   |
 |`react-native-async-storage`|Persist non-sensitive app state|
+|`expo-linear-gradient`      |Gradient backgrounds and buttons|
+|`@expo/vector-icons`        |Ionicons throughout the UI     |
+
+The API base URL is derived at runtime from Expo's `hostUri` (`services/api.ts`), so
+a device on the LAN reaches Django without any manual configuration.
 
 ### Authentication Flow
 
@@ -465,14 +611,20 @@ Mobile App (Expo build → APK / IPA)
         ↓
    Django REST Framework
      ↙               ↘
-PostgreSQL         Anthropic Claude API
+PostgreSQL          Groq API
 ```
 
 **Recommended hosting (low-cost, Ghana-accessible):**
 
 - Railway or Render for Django + PostgreSQL (free tier available)
 - DigitalOcean Droplet (~$6/month) for more control
-- Anthropic API — pay per token, low cost at this scale
+- Groq API — generous free tier, pay per token beyond it
+
+**Granting staff access in production.** `is_staff` is set by exactly two things:
+`manage.py createsuperuser`, and the `seed_demo_data` command (which refuses to run
+when `DEBUG=False`). There is no email-based auto-promotion — an earlier
+`ADMIN_EMAILS` mechanism was removed because it silently granted staff, and staff can
+read every user's health records.
 
 -----
 

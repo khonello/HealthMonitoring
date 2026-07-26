@@ -16,6 +16,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useHealthStore } from '@/store/healthStore';
 import { useAuth } from '@/hooks/useAuth';
 import { healthService } from '@/services/healthService';
+import { APP_VERSION } from '@/constants/app';
 import { Colors } from '@/constants/colors';
 import { Font, TextStyles } from '@/constants/typography';
 import { Radius } from '@/constants/radius';
@@ -51,9 +52,10 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const { records } = useHealthStore();
-  const { logout } = useAuth();
+  const { logout, deleteAccount } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleExport = async () => {
     setExporting(true);
@@ -83,6 +85,43 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This permanently deletes your account and all of your health records. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Everything',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you absolutely sure?',
+              'There is no way to recover your data after this.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete Account',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeletingAccount(true);
+                    try {
+                      await deleteAccount();
+                    } catch {
+                      Alert.alert('Delete Failed', 'Could not delete your account. Please try again.');
+                    } finally {
+                      setDeletingAccount(false);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   if (!user) return null;
@@ -144,6 +183,19 @@ export default function ProfileScreen() {
           />
         </View>
 
+        {/* Admin */}
+        {user.is_staff && (
+          <Section title="Admin">
+            <ActionRow
+              label="Admin Panel"
+              icon="shield-outline"
+              onPress={() => router.push('/admin')}
+              accessibilityLabel="Open admin panel"
+              last
+            />
+          </Section>
+        )}
+
         {/* Health Profile */}
         <Section title="Health Profile">
           <InfoRow label="Full Name" value={user.full_name} icon="person-outline" />
@@ -173,9 +225,20 @@ export default function ProfileScreen() {
           />
         </Section>
 
+        {/* Support */}
+        <Section title="Support">
+          <ActionRow
+            label="Send Feedback"
+            icon="chatbubble-ellipses-outline"
+            onPress={() => router.push('/feedback')}
+            accessibilityLabel="Send feedback to the team"
+            last
+          />
+        </Section>
+
         {/* About */}
         <Section title="About">
-          <ActionRow label="App Version" icon="information-circle-outline" value="1.0.0" onPress={() => {}} last />
+          <InfoRow label="App Version" value={APP_VERSION} icon="information-circle-outline" last />
         </Section>
 
         {/* Logout */}
@@ -188,6 +251,18 @@ export default function ProfileScreen() {
             <Ionicons name="log-out-outline" size={18} color={Colors.danger} />
             <Text style={styles.logoutText}>
               {loggingOut ? 'Signing out...' : 'Sign Out'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleDeleteAccount}
+            disabled={deletingAccount}
+            accessibilityRole="button"
+            accessibilityLabel="Delete account permanently"
+            style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={styles.deleteText}>
+              {deletingAccount ? 'Deleting account...' : 'Delete Account'}
             </Text>
           </Pressable>
         </View>
@@ -375,4 +450,7 @@ const styles = StyleSheet.create({
   },
   logoutBtnPressed: { opacity: 0.8 },
   logoutText: { fontFamily: Font.sansSemiBold, fontSize: 15, color: Colors.danger },
+
+  deleteBtn: { alignItems: 'center', paddingVertical: 14 },
+  deleteText: { fontFamily: Font.sansMedium, fontSize: 13, color: Colors.textTertiary },
 });

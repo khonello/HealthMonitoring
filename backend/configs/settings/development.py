@@ -1,7 +1,11 @@
-from dotenv import load_dotenv
-from .base import *  # noqa: F401, F403
+from pathlib import Path
 
-load_dotenv(BASE_DIR / ".env")  # noqa: F405
+from dotenv import load_dotenv
+
+# Load .env BEFORE importing base so its module-level os.environ reads see the values.
+load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+
+from .base import *  # noqa: E402, F401, F403
 
 DEBUG = True
 

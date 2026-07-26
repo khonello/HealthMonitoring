@@ -17,10 +17,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks/useAuth';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { DateField } from '@/components/ui/DateField';
 import { Colors } from '@/constants/colors';
 import { Font, TextStyles } from '@/constants/typography';
 import { Radius } from '@/constants/radius';
-import { validateEmail, validatePassword, validateFullName } from '@/utils/validation';
+import {
+  validateEmail,
+  validatePassword,
+  validateFullName,
+  validateDateOfBirth,
+  maxDobDate,
+  minDobDate,
+} from '@/utils/validation';
 import { Gender } from '@/types/auth';
 
 type Step = 1 | 2;
@@ -67,6 +75,8 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
+    const dobErr = validateDateOfBirth(dob);
+    if (dobErr) { setErrors((e) => ({ ...e, dob: dobErr })); return; }
     setLoading(true);
     try {
       await register({
@@ -187,12 +197,14 @@ export default function RegisterScreen() {
                 <Text style={styles.cardSubtitle}>Step 2 of 2 — Optional</Text>
 
                 <View style={styles.fields}>
-                  <Field
+                  <DateField
                     label="Date of birth"
                     value={dob}
-                    onChangeText={setDob}
-                    placeholder="YYYY-MM-DD"
-                    icon="calendar-outline"
+                    onChange={(v) => { setDob(v); setErrors((e) => ({ ...e, dob: undefined as any })); }}
+                    placeholder="Select your date of birth"
+                    error={errors.dob}
+                    maximumDate={maxDobDate()}
+                    minimumDate={minDobDate()}
                   />
 
                   <View>

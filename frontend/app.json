@@ -5,7 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "healthmonitoring",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "plugins": [
       "expo-router",
       "expo-font",
@@ -14,7 +16,8 @@
         {
           "faceIDPermission": "Allow HealthMonitoring to use Face ID."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "ios": {
       "supportsTablet": false,

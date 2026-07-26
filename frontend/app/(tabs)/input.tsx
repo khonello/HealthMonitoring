@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { HealthInputField } from '@/components/ui/HealthInputField';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';

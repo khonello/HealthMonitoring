@@ -1,8 +1,15 @@
-DISCLAIMER = (
+_DEFAULT_DISCLAIMER = (
     "This system helps you decide where to seek care. It does not diagnose conditions "
     "or replace professional medical advice. If you are experiencing a medical emergency, "
     "go to the nearest hospital immediately."
 )
+
+
+def get_disclaimer() -> str:
+    from apps.admin_panel.models import SystemConfig
+
+    row = SystemConfig.objects.filter(key="disclaimer_text").first()
+    return row.value if row is not None else _DEFAULT_DISCLAIMER
 
 
 def _temperature_status(value: float) -> str:
@@ -84,12 +91,13 @@ def build_report_response(record, triage_result: dict) -> dict:
 
     triage_obj = TriageResultModel.objects.get(health_record=record)
     readings_summary = build_readings_summary(record)
+    disclaimer = get_disclaimer()
 
     report = HealthReport.objects.create(
         health_record=record,
         triage_result=triage_obj,
         readings_summary=readings_summary,
-        disclaimer_text=DISCLAIMER,
+        disclaimer_text=disclaimer,
     )
 
     response = {
@@ -102,7 +110,7 @@ def build_report_response(record, triage_result: dict) -> dict:
             "recommendation": triage_result["recommendation_text"],
             "follow_up_flag": triage_result["follow_up_flag"],
             "follow_up_in_hours": triage_result.get("follow_up_hours"),
-            "disclaimer": DISCLAIMER,
+            "disclaimer": disclaimer,
         },
         "readings_summary": readings_summary,
         "generated_at": report.generated_at.isoformat(),

@@ -16,7 +16,7 @@ export function useAuth() {
     async (payload: LoginPayload) => {
       const data = await authService.login(payload);
       setUser(data.user);
-      router.replace('/(tabs)');
+      router.replace(data.user.is_staff ? '/admin' : '/(tabs)');
     },
     [setUser, router]
   );
@@ -25,7 +25,7 @@ export function useAuth() {
     async (payload: RegisterPayload) => {
       const data = await authService.register(payload);
       setUser(data.user);
-      router.replace('/(tabs)');
+      router.replace(data.user.is_staff ? '/admin' : '/(tabs)');
     },
     [setUser, router]
   );
@@ -38,11 +38,19 @@ export function useAuth() {
     router.replace('/(auth)/login');
   }, [clearAuth, clearHealth, clearReports, router]);
 
+  const deleteAccount = useCallback(async () => {
+    await authService.deleteAccount();
+    clearAuth();
+    clearHealth();
+    clearReports();
+    router.replace('/(auth)/login');
+  }, [clearAuth, clearHealth, clearReports, router]);
+
   const refreshProfile = useCallback(async () => {
     const user = await authService.getProfile();
     setUser(user);
     return user;
   }, [setUser]);
 
-  return { login, register, logout, refreshProfile };
+  return { login, register, logout, deleteAccount, refreshProfile };
 }

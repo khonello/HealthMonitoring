@@ -67,3 +67,16 @@ export const Colors = {
   white: '#FFFFFF',
   black: '#000000',
 } as const;
+
+/**
+ * A triage/status accent palette (normal, caution, alert, critical share this
+ * shape). Widened from the `as const` literal types so the palettes are
+ * interchangeable where any one of them may be returned.
+ */
+export type Palette = {
+  text: string;
+  bg: string;
+  border: string;
+  dot: string;
+  dark: string;
+};

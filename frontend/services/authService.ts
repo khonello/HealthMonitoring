@@ -36,4 +36,10 @@ export const authService = {
     await SecureStore.deleteItemAsync('access_token');
     await SecureStore.deleteItemAsync('refresh_token');
   },
+
+  async deleteAccount(): Promise<void> {
+    await api.delete('/api/auth/profile/');
+    await SecureStore.deleteItemAsync('access_token');
+    await SecureStore.deleteItemAsync('refresh_token');
+  },
 };

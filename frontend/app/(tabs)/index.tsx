@@ -75,6 +75,7 @@ export default function DashboardScreen() {
 
   const [tip, setTip] = useState<Tip | null>(null);
   const [tipLoading, setTipLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchTip = useCallback(async () => {
     setTipLoading(true);
@@ -97,7 +98,12 @@ export default function DashboardScreen() {
   useFocusEffect(useCallback(() => { fetchHistory(); }, [fetchHistory]));
 
   const onRefresh = useCallback(async () => {
-    await Promise.all([fetchHistory(), fetchTip()]);
+    setRefreshing(true);
+    try {
+      await Promise.all([fetchHistory(), fetchTip()]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [fetchHistory, fetchTip]);
 
   const today = records.find((r) => isTodayRecord(r.submitted_at));
@@ -114,7 +120,7 @@ export default function DashboardScreen() {
           { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 },
         ]}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={Colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
       >
         {/* Greeting */}

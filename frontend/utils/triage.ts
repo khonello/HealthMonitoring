@@ -1,11 +1,11 @@
 import { TriageLevel, UrgencyLevel } from '@/types/health';
 import { ReadingStatus } from '@/types/report';
-import { Colors } from '@/constants/colors';
+import { Colors, Palette } from '@/constants/colors';
 
 export interface TriageDisplay {
   label: string;
   sublabel: string;
-  colors: typeof Colors.normal;
+  colors: Palette;
   iconName: string;
 }
 

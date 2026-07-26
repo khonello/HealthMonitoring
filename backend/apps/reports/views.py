@@ -93,6 +93,14 @@ class RetryTriageView(APIView):
             triage.save()
         except (LLMError, ParseError, Exception) as e:
             logger.error("Retry triage failed for report %s: %s", pk, e)
+            from apps.admin_panel.models import LLMFailureLog
+
+            LLMFailureLog.objects.create(
+                health_record=record,
+                source="retry",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
             return Response(
                 {"detail": "LLM analysis failed again. Please try later."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,

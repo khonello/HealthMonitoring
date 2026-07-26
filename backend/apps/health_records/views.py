@@ -1,4 +1,5 @@
 import json
+import random
 import re
 import logging
 
@@ -68,13 +69,23 @@ _TIP_FALLBACK = {
     "icon": "water-outline",
 }
 
+# Category chosen server-side (not left to the model) — left to its own
+# devices, the LLM defaults to hydration/water tips most of the time.
+_TIP_CATEGORIES = [
+    ("Hydration", "water-outline"),
+    ("Sleep", "moon-outline"),
+    ("Nutrition", "nutrition-outline"),
+    ("Activity", "walk-outline"),
+    ("Breathing", "leaf-outline"),
+    ("Posture", "body-outline"),
+    ("Monitoring", "heart-outline"),
+]
+
 _TIP_SYSTEM = (
     "You are a concise health educator. "
-    "Return ONLY a valid JSON object with exactly three string keys: "
-    "\"text\" (1–2 sentences, a practical, specific health tip), "
-    "\"category\" (one word, e.g. Hydration, Sleep, Nutrition, Activity, Breathing, Posture, Monitoring), "
-    "\"icon\" (one of: water-outline, moon-outline, walk-outline, leaf-outline, nutrition-outline, "
-    "body-outline, heart-outline, fitness-outline, sunny-outline, bandage-outline). "
+    "Return ONLY a valid JSON object with exactly two string keys: "
+    "\"text\" (1–2 sentences, a practical, specific health tip about the given category), "
+    "\"category\" (echo back the category given in the user message, verbatim). "
     "No markdown fences, no explanation, just the JSON object."
 )
 
@@ -83,15 +94,32 @@ class HealthTipView(APIView):
     def get(self, request):
         from apps.triage.llm_client import call_llm, LLMError
 
+        category, icon = random.choice(_TIP_CATEGORIES)
+
         try:
-            raw = call_llm(_TIP_SYSTEM, "Give me a fresh, practical daily health tip.")
+            raw = call_llm(
+                _TIP_SYSTEM,
+                f'Give me a fresh, practical daily health tip about "{category}".',
+            )
             match = re.search(r'\{.*\}', raw, re.DOTALL)
             if not match:
                 raise ValueError("No JSON in LLM response")
             tip = json.loads(match.group())
-            if not all(k in tip for k in ("text", "category", "icon")):
-                raise ValueError("Missing keys in tip response")
+            if "text" not in tip:
+                raise ValueError("Missing text key in tip response")
+            # Category/icon are set from our own selection, not trusted from
+            # the model, so the label always matches what was actually asked.
+            tip["category"] = category
+            tip["icon"] = icon
             return Response(tip)
         except Exception as e:
             logger.warning("HealthTipView LLM failed: %s", e)
+            from apps.admin_panel.models import LLMFailureLog
+
+            LLMFailureLog.objects.create(
+                health_record=None,
+                source="health_tip",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
             return Response(_TIP_FALLBACK)

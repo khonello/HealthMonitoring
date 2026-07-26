@@ -17,13 +17,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/authService';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { DateField } from '@/components/ui/DateField';
 import { Colors } from '@/constants/colors';
 import { Font } from '@/constants/typography';
 import { Radius } from '@/constants/radius';
 import { Spacing } from '@/constants/spacing';
 import { Shadows } from '@/constants/shadows';
 import { Gender } from '@/types/auth';
-import { validateFullName } from '@/utils/validation';
+import {
+  validateFullName,
+  validateDateOfBirth,
+  maxDobDate,
+  minDobDate,
+} from '@/utils/validation';
 
 const GENDERS: { value: Gender; label: string }[] = [
   { value: 'male', label: 'Male' },
@@ -45,7 +51,11 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     const nameErr = validateFullName(fullName);
-    if (nameErr) { setErrors({ fullName: nameErr }); return; }
+    const dobErr = validateDateOfBirth(dob);
+    if (nameErr || dobErr) {
+      setErrors({ ...(nameErr && { fullName: nameErr }), ...(dobErr && { dob: dobErr }) });
+      return;
+    }
     setErrors({});
     setLoading(true);
     try {
@@ -106,17 +116,15 @@ export default function EditProfileScreen() {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Date of Birth</Text>
-              <View style={styles.inputWrap}>
-                <Ionicons name="calendar-outline" size={18} color={Colors.textTertiary} style={styles.inputIcon} />
-                <TextInput
-                  value={dob}
-                  onChangeText={setDob}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={Colors.placeholder}
-                  style={styles.inputText}
-                />
-              </View>
+              <DateField
+                label="Date of Birth"
+                value={dob}
+                onChange={(v) => { setDob(v); setErrors((e) => ({ ...e, dob: '' })); }}
+                placeholder="Select your date of birth"
+                error={errors.dob}
+                maximumDate={maxDobDate()}
+                minimumDate={minDobDate()}
+              />
             </View>
 
             <View style={styles.field}>

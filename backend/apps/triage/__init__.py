@@ -38,6 +38,7 @@ def run_triage(record, user) -> dict:
             llm_model_used = MODEL
         except (LLMError, Exception) as e:
             logger.error("LLM call failed during hard-rule override: %s", str(e))
+            _log_llm_failure(record, "triage", e)
             recommendation_text = _FALLBACK_RECOMMENDATION
             llm_model_used = None
             prompt_log = f"hard_rule_override: {hard_rule_metric} | llm_api_failure"
@@ -74,6 +75,7 @@ def run_triage(record, user) -> dict:
             }
         except (LLMError, ParseError, Exception) as e:
             logger.error("LLM triage failed: %s", str(e))
+            _log_llm_failure(record, "triage", e)
             result = {
                 "triage_level": "see_doctor",
                 "urgency": "low",
@@ -90,6 +92,17 @@ def run_triage(record, user) -> dict:
 
     _save_triage_result(record, result)
     return result
+
+
+def _log_llm_failure(record, source: str, error: Exception):
+    from apps.admin_panel.models import LLMFailureLog
+
+    LLMFailureLog.objects.create(
+        health_record=record,
+        source=source,
+        error_type=type(error).__name__,
+        error_message=str(error),
+    )
 
 
 def _save_triage_result(record, result: dict):

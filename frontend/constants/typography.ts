@@ -3,7 +3,7 @@ import { Colors } from './colors';
 
 export const Font = {
   serif: 'DMSerifDisplay_400Regular',
-  serifItalic: 'DMSerifDisplay_400Italic',
+  serifItalic: 'DMSerifDisplay_400Regular_Italic',
   sans: 'DMSans_400Regular',
   sansLight: 'DMSans_300Light',
   sansMedium: 'DMSans_500Medium',
