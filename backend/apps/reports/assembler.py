@@ -6,10 +6,16 @@ _DEFAULT_DISCLAIMER = (
 
 
 def get_disclaimer() -> str:
+    """
+    Falls back to the bundled default when the row is missing OR blank — an admin
+    clearing the field must never leave a report with no disclaimer on it.
+    """
     from apps.admin_panel.models import SystemConfig
 
     row = SystemConfig.objects.filter(key="disclaimer_text").first()
-    return row.value if row is not None else _DEFAULT_DISCLAIMER
+    if row is None or not row.value.strip():
+        return _DEFAULT_DISCLAIMER
+    return row.value
 
 
 def _temperature_status(value: float) -> str:

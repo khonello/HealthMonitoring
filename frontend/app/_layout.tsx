@@ -31,7 +31,7 @@ function RootLayoutNav() {
     const inTabs = segments[0] === '(tabs)';
     const inOnboarding = segments[0] === 'onboarding';
     const inAdmin = segments[0] === 'admin';
-    const inApp = inTabs || segments[0] === 'report' || segments[0] === 'metric' || segments[0] === 'alert' || segments[0] === 'profile' || segments[0] === 'feedback' || inAdmin;
+    const inApp = inTabs || segments[0] === 'report' || segments[0] === 'metric' || segments[0] === 'alert' || segments[0] === 'profile' || segments[0] === 'feedback' || segments[0] === 'disclaimer' || inAdmin;
 
     if (!user) {
       // Signed out: show the informational onboarding first (every cold start,
@@ -74,6 +74,10 @@ function RootLayoutNav() {
       />
       <Stack.Screen
         name="feedback"
+        options={{ animation: 'slide_from_right', gestureEnabled: true }}
+      />
+      <Stack.Screen
+        name="disclaimer"
         options={{ animation: 'slide_from_right', gestureEnabled: true }}
       />
       <Stack.Screen name="admin" options={{ animation: 'fade' }} />

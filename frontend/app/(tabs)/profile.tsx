@@ -220,7 +220,8 @@ export default function ProfileScreen() {
           <ActionRow
             label="Privacy & Disclaimer"
             icon="shield-checkmark-outline"
-            onPress={() => {}}
+            onPress={() => router.push('/disclaimer')}
+            accessibilityLabel="Read the privacy notice and medical disclaimer"
             last
           />
         </Section>

@@ -7,12 +7,13 @@ from rest_framework.generics import (
     RetrieveAPIView,
     RetrieveUpdateAPIView,
 )
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.feedback.models import Feedback
+from apps.reports.assembler import get_disclaimer
 from apps.reports.models import TriageResult
 
 from .models import LLMFailureLog, SafetyThreshold, SystemConfig
@@ -139,6 +140,15 @@ class AdminSafetyThresholdDetailView(RetrieveUpdateAPIView):
     serializer_class = SafetyThresholdSerializer
     permission_classes = [IsAdminUser]
     queryset = SafetyThreshold.objects.all()
+
+
+class PublicDisclaimerView(APIView):
+    """Unauthenticated read of the active disclaimer, for the in-app legal screen."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({"disclaimer": get_disclaimer()})
 
 
 class AdminDisclaimerConfigView(RetrieveUpdateAPIView):
