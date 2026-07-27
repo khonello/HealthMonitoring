@@ -222,10 +222,51 @@ backend/
 
 - **`apps/`** — all Django apps are grouped here rather than sitting at the project root. This keeps the top-level clean and makes the separation between application code and configuration explicit.
 - **`configs/`** — replaces the default Django `<project_name>/` inner folder. Holds all project-level settings, URL routing, and server entry points.
-- **`configs/settings/`** — settings are split across three files rather than one. `base.py` holds everything shared; `development.py` and `production.py` inherit from it and override only what changes between environments. The active settings file is selected via the `DJANGO_SETTINGS_MODULE` environment variable.
+- **`configs/settings/`** — settings are split across three files rather than one. `base.py` holds everything shared; `development.py` and `production.py` inherit from it and override only what changes between environments. The active settings file is selected via the `DJANGO_SETTINGS_MODULE` environment variable. See [Settings Split](#settings-split) below for why.
 - **`logs/`** — log output directory, excluded from version control via `.gitignore`. The `.gitkeep` file ensures the folder is tracked by Git so the directory exists on fresh clones.
 - **`.env` / `.env.example`** — sensitive values (secret key, database URL, Groq API key) live in `.env`, which is never committed. `.env.example` documents every required variable with placeholder values so any developer can get set up quickly.
 - **`apps/accounts/management/commands/seed_demo_data.py`** — creates the `@health.test` fixture accounts used for manual and QA testing. Documented in [test-accounts.md](test-accounts.md).
+
+### Settings Split
+
+Django imports exactly one settings module at startup; `DJANGO_SETTINGS_MODULE` is the
+dotted path naming it. The split exists because several settings that are correct in one
+environment are actively broken in the other — not merely less convenient.
+
+| Setting | Development | Production | Consequence of using the wrong one |
+|---|---|---|---|
+| `DEBUG` | `True` | `False` | `True` in production renders full tracebacks on any 500 — source, local variables, settings values. `False` in development means debugging blind. |
+| `ALLOWED_HOSTS` | `["*"]` | from `ALLOWED_HOSTS` env var | Production validates the `Host` header against cache and password-reset poisoning. Development cannot enumerate hosts — the LAN IP changes with the network. |
+| `DATABASES` | SQLite file | PostgreSQL | SQLite in production loses data on redeploy and serialises writes. Requiring PostgreSQL in development forces every contributor to run a database server. |
+| CORS | `CORS_ALLOW_ALL_ORIGINS = True` | `CORS_ALLOWED_ORIGINS` allowlist | Expo serves from an unpredictable IP and port, so development must be open. Open in production lets any origin call the API with a user's credentials. |
+| SSL / HSTS | absent | `SECURE_SSL_REDIRECT`, HSTS | `SECURE_SSL_REDIRECT` locally redirects `http://localhost:8000` to an HTTPS port nothing serves. HSTS is worse: the browser caches "localhost is HTTPS-only" for a year, breaking every other local project on the machine. |
+
+Both environment modules open with `from .base import *` and then reassign only what
+differs, so shared configuration is written once and cannot drift between environments.
+
+`base.py` deliberately defaults `DEBUG = False` and `ALLOWED_HOSTS = []` — the safe values,
+not the convenient ones. A settings module that forgets to override them yields a server
+that refuses every request rather than one that leaks tracebacks. It fails closed.
+
+`development.py` calls `load_dotenv()` before importing `base`, so `backend/.env` is read
+into the environment in time for base's module-level `os.environ` lookups. Production does
+not: the hosting platform injects real environment variables, and no `.env` file is deployed.
+
+The entry points default to different modules, each to its likeliest caller:
+
+| Entry point | Default | Loaded by |
+|---|---|---|
+| `manage.py` | `configs.settings.development` | a developer typing commands |
+| `wsgi.py` | `configs.settings.production` | Gunicorn in deployment |
+| `asgi.py` | `configs.settings.production` | an ASGI server in deployment |
+
+All three use `os.environ.setdefault`, so an explicitly exported `DJANGO_SETTINGS_MODULE`
+still wins. The `--settings=` flag on a management command overrides per-invocation — needed
+when you are the exception, such as running `migrate` against the production database from a
+local terminal. Because `manage.py` already defaults to development, the
+`--settings=configs.settings.development` shown throughout the README is redundant for
+routine local work; it is written out for explicitness and to stay correct if the variable is
+set in the surrounding shell.
 
 -----
 

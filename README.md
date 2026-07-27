@@ -31,6 +31,12 @@ python manage.py runserver 0.0.0.0:8000 --settings=configs.settings.development
 
 The API will be available at `http://<your-machine-ip>:8000`.
 
+`--settings=` selects which settings module Django loads. `manage.py` already defaults to
+`configs.settings.development`, so the flag is redundant for routine local work — it is
+written out here for explicitness. See
+[Settings Split](docs/architecture.md#settings-split) for what differs between the
+development and production modules, and why.
+
 ### Useful commands
 
 ```powershell
@@ -55,7 +61,7 @@ python manage.py seed_demo_data --fresh --settings=configs.settings.development
 ```
 
 Creates six accounts on the `@health.test` domain, all sharing the password
-**`HealthTest123`** (override with `--password`). Data is deterministic and written
+**`password`** (override with `--password`). Data is deterministic and written
 directly — no LLM calls are made, so it works offline.
 
 | Account | Role | What it exercises |
@@ -122,7 +128,8 @@ Open two terminals:
 
 **Terminal 1 — Backend**
 ```powershell
-cd backend && environ\Scripts\activate
+cd backend
+environ\Scripts\activate
 python manage.py runserver 0.0.0.0:8000 --settings=configs.settings.development
 ```
 

@@ -116,17 +116,17 @@ export default function AdminUserDetailScreen() {
                   <View style={styles.recordBadgeRow}>
                     {t.hard_rule_triggered && (
                       <View style={[styles.recordBadge, { backgroundColor: Colors.critical.bg, borderColor: Colors.critical.border }]}>
-                        <Text style={[styles.recordBadgeText, { color: Colors.critical.text }]}>Hard-rule</Text>
+                        <Text style={[styles.recordBadgeText, { color: Colors.critical.text }]}>Safety net</Text>
                       </View>
                     )}
                     {t.confidence_level === 'low' && (
                       <View style={[styles.recordBadge, { backgroundColor: Colors.caution.bg, borderColor: Colors.caution.border }]}>
-                        <Text style={[styles.recordBadgeText, { color: Colors.caution.text }]}>Low confidence</Text>
+                        <Text style={[styles.recordBadgeText, { color: Colors.caution.text }]}>Unreliable</Text>
                       </View>
                     )}
                     {t.llm_model_used === null && (
                       <View style={[styles.recordBadge, { backgroundColor: Colors.alert.bg, borderColor: Colors.alert.border }]}>
-                        <Text style={[styles.recordBadgeText, { color: Colors.alert.text }]}>LLM failed</Text>
+                        <Text style={[styles.recordBadgeText, { color: Colors.alert.text }]}>AI failed</Text>
                       </View>
                     )}
                   </View>

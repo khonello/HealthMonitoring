@@ -36,10 +36,14 @@ export function Header({
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  // A screen reached via `replace` (or opened by deep link) is the root of its stack,
+  // so `router.back()` would throw. Hide the chevron rather than offer a dead control.
+  const canGoBack = showBack && (!!onBack || router.canGoBack());
+
   const handleBack = () => {
     if (onBack) {
       onBack();
-    } else {
+    } else if (router.canGoBack()) {
       router.back();
     }
   };
@@ -53,7 +57,7 @@ export function Header({
       ]}
     >
       <View style={styles.row}>
-        {showBack ? (
+        {canGoBack ? (
           <Pressable onPress={handleBack} style={styles.backButton} hitSlop={8}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </Pressable>

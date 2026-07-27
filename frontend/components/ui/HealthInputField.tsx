@@ -11,6 +11,7 @@ import { Colors } from '@/constants/colors';
 import { Font } from '@/constants/typography';
 import { Radius } from '@/constants/radius';
 import { Shadows } from '@/constants/shadows';
+import { Spacing } from '@/constants/spacing';
 
 type Status = 'normal' | 'caution' | 'critical' | 'default';
 
@@ -78,9 +79,10 @@ export function HealthInputField({
             keyboardType="decimal-pad"
             style={styles.input}
           />
-          <Text style={styles.unit}>{unit}</Text>
-
-          {secondValue !== undefined && onSecondChangeText && (
+          {/* Paired fields carry one unit at the end — "120 / 80 mmHg" is how a blood
+              pressure reading is written and spoken. A unit wedged between the two
+              numbers reads as though it applied only to the first. */}
+          {secondValue !== undefined && onSecondChangeText ? (
             <>
               <Text style={styles.separator}>/</Text>
               <TextInput
@@ -91,8 +93,10 @@ export function HealthInputField({
                 keyboardType="decimal-pad"
                 style={styles.input}
               />
-              {secondUnit && <Text style={styles.unit}>{secondUnit}</Text>}
+              <Text style={styles.unit}>{secondUnit ?? unit}</Text>
             </>
+          ) : (
+            <Text style={styles.unit}>{unit}</Text>
           )}
         </View>
 
@@ -112,18 +116,18 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     flexDirection: 'row',
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: Spacing.cardGap,
     ...Shadows.card,
   },
   inner: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
   },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
     gap: 6,
   },
   icon: {
@@ -143,14 +147,18 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 6,
+    gap: 8,
   },
   input: {
     fontFamily: Font.serif,
     fontSize: 32,
     color: Colors.text,
-    minWidth: 60,
-    padding: 0,
+    // DM Serif Display runs wide: a 4-glyph placeholder like "36.5" needs ~72px at
+    // 32px. Anything tighter clips the placeholder, which only shows when empty —
+    // once you type, the field scrolls to follow the cursor and hides the crop.
+    minWidth: 78,
+    paddingVertical: 2,
+    paddingHorizontal: 0,
   },
   unit: {
     fontFamily: Font.sans,
@@ -167,7 +175,7 @@ const styles = StyleSheet.create({
     fontFamily: Font.sans,
     fontSize: 12,
     color: Colors.textTertiary,
-    marginTop: 6,
+    marginTop: 8,
   },
   hintError: {
     color: Colors.critical.dot,

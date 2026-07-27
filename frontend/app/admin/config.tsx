@@ -1,5 +1,15 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +31,7 @@ const OPERATOR_LABEL: Record<string, string> = {
 
 export default function AdminConfigScreen() {
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
   const [thresholds, setThresholds] = useState<SafetyThreshold[]>([]);
   const [edits, setEdits] = useState<Record<number, { value: string; value_high: string }>>({});
   const [disclaimer, setDisclaimer] = useState<SystemConfig | null>(null);
@@ -100,69 +111,84 @@ export default function AdminConfigScreen() {
   return (
     <LinearGradient colors={['#F0F4FF', '#FFFFFF']} style={styles.gradient}>
       <Header title="Safety Config" showBack />
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]}>
-        <Text style={styles.sectionTitle}>Hard-Rule Thresholds</Text>
-        <Text style={styles.sectionHint}>
-          Editing these changes when a submission is auto-flagged as critical — take care.
-        </Text>
-        {thresholds.map((t) => (
-          <GlassCard key={t.id} style={styles.thresholdCard}>
-            <Text style={styles.metricName}>{t.metric.replace(/_/g, ' ')}</Text>
-            <Text style={styles.metricDesc}>{t.description}</Text>
-            <Text style={styles.operatorLabel}>Triggers when {OPERATOR_LABEL[t.operator] ?? t.operator}:</Text>
-            <View style={styles.valueRow}>
-              <TextInput
-                value={edits[t.id]?.value ?? ''}
-                onChangeText={(text) => setEdits((prev) => ({ ...prev, [t.id]: { ...prev[t.id], value: text } }))}
-                keyboardType="numeric"
-                style={styles.valueInput}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.kav}
+      >
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]}
+        >
+          <Text style={styles.sectionTitle}>Safety Net Limits</Text>
+          <Text style={styles.sectionHint}>
+            When a vital sign crosses one of these limits, the app overrides the AI and tells the
+            user to see a doctor. Editing them changes who gets escalated — take care.
+          </Text>
+          {thresholds.map((t) => (
+            <GlassCard key={t.id} style={styles.thresholdCard}>
+              <Text style={styles.metricName}>{t.metric.replace(/_/g, ' ')}</Text>
+              <Text style={styles.metricDesc}>{t.description}</Text>
+              <Text style={styles.operatorLabel}>Triggers when {OPERATOR_LABEL[t.operator] ?? t.operator}:</Text>
+              <View style={styles.valueRow}>
+                <TextInput
+                  value={edits[t.id]?.value ?? ''}
+                  onChangeText={(text) => setEdits((prev) => ({ ...prev, [t.id]: { ...prev[t.id], value: text } }))}
+                  keyboardType="numeric"
+                  style={styles.valueInput}
+                />
+                {t.operator === 'outside_range' && (
+                  <>
+                    <Text style={styles.rangeDash}>–</Text>
+                    <TextInput
+                      value={edits[t.id]?.value_high ?? ''}
+                      onChangeText={(text) => setEdits((prev) => ({ ...prev, [t.id]: { ...prev[t.id], value_high: text } }))}
+                      keyboardType="numeric"
+                      style={styles.valueInput}
+                    />
+                  </>
+                )}
+              </View>
+              <PrimaryButton
+                label={savingId === t.id ? 'Saving...' : 'Save'}
+                onPress={() => saveThreshold(t)}
+                loading={savingId === t.id}
+                variant="secondary"
+                style={styles.saveBtn}
               />
-              {t.operator === 'outside_range' && (
-                <>
-                  <Text style={styles.rangeDash}>–</Text>
-                  <TextInput
-                    value={edits[t.id]?.value_high ?? ''}
-                    onChangeText={(text) => setEdits((prev) => ({ ...prev, [t.id]: { ...prev[t.id], value_high: text } }))}
-                    keyboardType="numeric"
-                    style={styles.valueInput}
-                  />
-                </>
-              )}
-            </View>
-            <PrimaryButton
-              label={savingId === t.id ? 'Saving...' : 'Save'}
-              onPress={() => saveThreshold(t)}
-              loading={savingId === t.id}
-              variant="secondary"
-              style={styles.saveBtn}
+            </GlassCard>
+          ))}
+
+          <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Report Disclaimer</Text>
+          <Text style={styles.sectionHint}>Shown on every generated health report.</Text>
+          <GlassCard style={styles.disclaimerCard}>
+            <TextInput
+              value={disclaimerText}
+              onChangeText={setDisclaimerText}
+              multiline
+              style={styles.disclaimerInput}
+              textAlignVertical="top"
+              // The disclaimer sits at the very bottom of the page, so focusing it puts
+              // it behind the keyboard. Scroll it into view once the keyboard settles.
+              onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250)}
             />
           </GlassCard>
-        ))}
-
-        <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Report Disclaimer</Text>
-        <Text style={styles.sectionHint}>Shown on every generated health report.</Text>
-        <GlassCard style={styles.disclaimerCard}>
-          <TextInput
-            value={disclaimerText}
-            onChangeText={setDisclaimerText}
-            multiline
-            style={styles.disclaimerInput}
-            textAlignVertical="top"
+          <PrimaryButton
+            label={savingDisclaimer ? 'Saving...' : 'Save Disclaimer'}
+            onPress={saveDisclaimer}
+            loading={savingDisclaimer}
+            disabled={!disclaimer || disclaimerText === disclaimer.value}
           />
-        </GlassCard>
-        <PrimaryButton
-          label={savingDisclaimer ? 'Saving...' : 'Save Disclaimer'}
-          onPress={saveDisclaimer}
-          loading={savingDisclaimer}
-          disabled={!disclaimer || disclaimerText === disclaimer.value}
-        />
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
+  kav: { flex: 1 },
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingHorizontal: Spacing.screenH, paddingTop: 16 },
 

@@ -12,7 +12,11 @@ python manage.py seed_demo_data --settings=configs.settings.development
 python manage.py seed_demo_data --fresh --settings=configs.settings.development
 ```
 
-**Password for every account: `HealthTest123`** (override with `--password`).
+**Password for every account: `password`** (override with `--password`).
+
+It is deliberately trivial — these accounts are throwaway local fixtures and the
+command refuses to run outside `DEBUG` anyway. Eight characters is the minimum the
+register flow accepts, so anything shorter would not be reachable through the app.
 
 Command source: `backend/apps/accounts/management/commands/seed_demo_data.py`
 

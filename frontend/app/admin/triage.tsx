@@ -16,10 +16,17 @@ import { Shadows } from '@/constants/shadows';
 
 const FILTERS: { key: TriageOversightFilter | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'critical_urgent', label: 'Critical / Urgent' },
-  { key: 'hard_rule', label: 'Hard-Rule Overrides' },
-  { key: 'low_confidence', label: 'Low Confidence' },
+  { key: 'critical_urgent', label: 'Urgent' },
+  { key: 'hard_rule', label: 'Safety Net' },
+  { key: 'low_confidence', label: 'Unreliable' },
 ];
+
+const FILTER_CAPTIONS: Record<TriageOversightFilter | 'all', string> = {
+  all: 'Every assessment the app has produced, newest first.',
+  critical_urgent: 'The user was told to see a doctor, or the result was marked high urgency.',
+  hard_rule: 'A vital sign breached a safe limit, so the app overrode the AI and escalated.',
+  low_confidence: 'The user gave too little information for the result to be trusted.',
+};
 
 export default function AdminTriageOversightScreen() {
   const router = useRouter();
@@ -49,9 +56,12 @@ export default function AdminTriageOversightScreen() {
     <LinearGradient colors={['#F0F4FF', '#FFFFFF']} style={styles.gradient}>
       <Header title="Needs Attention" showBack />
 
+      {/* flexGrow: 0 keeps this row from swallowing the remaining column height —
+          without it the chips stretch to fill it. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
         contentContainerStyle={styles.filterRow}
       >
         {FILTERS.map((f) => (
@@ -66,6 +76,8 @@ export default function AdminTriageOversightScreen() {
           </Pressable>
         ))}
       </ScrollView>
+
+      <Text style={styles.filterCaption}>{FILTER_CAPTIONS[filter]}</Text>
 
       {loading && results.length === 0 ? (
         <View style={styles.loadingCenter}>
@@ -96,17 +108,17 @@ export default function AdminTriageOversightScreen() {
                     <View style={styles.badgeRow}>
                       {r.hard_rule_triggered && (
                         <View style={[styles.badge, { backgroundColor: Colors.critical.bg, borderColor: Colors.critical.border }]}>
-                          <Text style={[styles.badgeText, { color: Colors.critical.text }]}>Hard-rule</Text>
+                          <Text style={[styles.badgeText, { color: Colors.critical.text }]}>Safety net</Text>
                         </View>
                       )}
                       {r.confidence_level === 'low' && (
                         <View style={[styles.badge, { backgroundColor: Colors.caution.bg, borderColor: Colors.caution.border }]}>
-                          <Text style={[styles.badgeText, { color: Colors.caution.text }]}>Low confidence</Text>
+                          <Text style={[styles.badgeText, { color: Colors.caution.text }]}>Unreliable</Text>
                         </View>
                       )}
                       {r.llm_model_used === null && (
                         <View style={[styles.badge, { backgroundColor: Colors.alert.bg, borderColor: Colors.alert.border }]}>
-                          <Text style={[styles.badgeText, { color: Colors.alert.text }]}>LLM failed</Text>
+                          <Text style={[styles.badgeText, { color: Colors.alert.text }]}>AI failed</Text>
                         </View>
                       )}
                     </View>
@@ -127,15 +139,21 @@ export default function AdminTriageOversightScreen() {
 
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
-  filterRow: { paddingHorizontal: Spacing.screenH, paddingVertical: 12, gap: 8 },
+  filterScroll: { flexGrow: 0 },
+  filterRow: {
+    paddingHorizontal: Spacing.screenH,
+    paddingVertical: 12,
+    gap: 8,
+    alignItems: 'center',
+  },
   filterChip: {
+    height: 34,
+    justifyContent: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 8,
     borderRadius: Radius.full,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.separator,
-    marginRight: 8,
   },
   filterChipActive: {
     backgroundColor: Colors.primary,
@@ -143,6 +161,14 @@ const styles = StyleSheet.create({
   },
   filterLabel: { fontFamily: Font.sansMedium, fontSize: 13, color: Colors.textSecondary },
   filterLabelActive: { color: Colors.white },
+  filterCaption: {
+    fontFamily: Font.sans,
+    fontSize: 12,
+    lineHeight: 17,
+    color: Colors.textSecondary,
+    paddingHorizontal: Spacing.screenH,
+    paddingBottom: 12,
+  },
 
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { paddingHorizontal: Spacing.screenH },

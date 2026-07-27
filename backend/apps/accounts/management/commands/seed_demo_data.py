@@ -26,7 +26,9 @@ from apps.reports.assembler import build_readings_summary, get_disclaimer
 from apps.reports.models import HealthReport, TriageResult
 
 SEED_DOMAIN = "@health.test"
-DEFAULT_PASSWORD = "HealthTest123"
+# Deliberately trivial: these are throwaway local fixtures and the point is that it
+# is quick to type. Exactly 8 characters, which is the register flow's minimum.
+DEFAULT_PASSWORD = "password"
 SEED_MODEL = "llama-3.3-70b-versatile"
 SEED_PROMPT = "[seeded fixture — no LLM call was made for this record]"
 
