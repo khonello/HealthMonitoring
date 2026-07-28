@@ -8,13 +8,9 @@ Full-stack health monitoring app — Django REST backend + Expo (React Native) f
 
 **Virtual environment:** `backend/environ/`
 
-**Requires PostgreSQL** — the project uses PostgreSQL in every environment, including
-local development. Install it first ([download](https://www.postgresql.org/download/)),
-then create the database:
-
-```powershell
-createdb healthmonitoring
-```
+**Requires PostgreSQL** — used in every environment, including local development. There is
+no SQLite fallback, so a fresh clone needs a running PostgreSQL server before Django will
+start.
 
 ### First-time setup
 
@@ -27,11 +23,14 @@ pip install -r requirements.txt
 copy .env.example .env
 
 python manage.py migrate --settings=configs.settings.development
+python manage.py seed_demo_data --settings=configs.settings.development
 ```
 
-The `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` values in `.env` must
-match your local PostgreSQL instance. If `migrate` fails with a connection error, check
-that the PostgreSQL service is running and that those credentials are correct.
+This assumes the `healthmonitoring` database and its role already exist. If you have not
+created them, or `migrate` fails with a connection or permission error, follow
+**[docs/database-setup.md](docs/database-setup.md)** — it covers creating the role and
+database with the right ownership and privileges, configuring `.env`, and a
+troubleshooting table for the common failures.
 
 ### Start the server
 

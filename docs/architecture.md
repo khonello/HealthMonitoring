@@ -250,6 +250,7 @@ tests exercise different type handling, constraint enforcement, and query semant
 the deployed system — `JSONField` in particular is native `jsonb` on PostgreSQL and
 serialised text elsewhere. Matching engines costs each contributor one local PostgreSQL
 install and removes an entire class of works-locally-fails-in-production defects.
+Setup instructions are in [database-setup.md](database-setup.md).
 
 `base.py` deliberately defaults `DEBUG = False` and `ALLOWED_HOSTS = []` — the safe values,
 not the convenient ones. A settings module that forgets to override them yields a server
