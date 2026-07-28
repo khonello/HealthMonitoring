@@ -8,14 +8,30 @@ Full-stack health monitoring app — Django REST backend + Expo (React Native) f
 
 **Virtual environment:** `backend/environ/`
 
+**Requires PostgreSQL** — the project uses PostgreSQL in every environment, including
+local development. Install it first ([download](https://www.postgresql.org/download/)),
+then create the database:
+
+```powershell
+createdb healthmonitoring
+```
+
 ### First-time setup
 
 ```powershell
 cd backend
 environ\Scripts\activate
 pip install -r requirements.txt
+
+# Copy the env template and fill in your DB credentials + Groq key
+copy .env.example .env
+
 python manage.py migrate --settings=configs.settings.development
 ```
+
+The `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` values in `.env` must
+match your local PostgreSQL instance. If `migrate` fails with a connection error, check
+that the PostgreSQL service is running and that those credentials are correct.
 
 ### Start the server
 

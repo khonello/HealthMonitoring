@@ -12,10 +12,10 @@ __pycache__/
 
 # Django
 *.log
-logs/
+logs/*
+!logs/.gitkeep
 static/collected/
 media/
-db.sqlite3
 
 # Virtual environments
 environ/

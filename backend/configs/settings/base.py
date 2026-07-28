@@ -67,6 +67,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "configs.wsgi.application"
 
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("DB_NAME", "healthmonitoring"),
+        "USER": os.environ.get("DB_USER", "postgres"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
+    }
+}
+
 AUTH_USER_MODEL = "accounts.User"
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -111,6 +122,9 @@ CORS_ALLOWED_ORIGINS = [
     if origin.strip()
 ]
 
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -129,7 +143,7 @@ LOGGING = {
         "file": {
             "level": "INFO",
             "class": "logging.FileHandler",
-            "filename": str(BASE_DIR / "logs" / "app.log"),
+            "filename": str(LOG_DIR / "app.log"),
             "formatter": "verbose",
             "filters": ["health_data_filter"],
         },

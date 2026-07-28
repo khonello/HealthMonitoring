@@ -237,12 +237,19 @@ environment are actively broken in the other — not merely less convenient.
 |---|---|---|---|
 | `DEBUG` | `True` | `False` | `True` in production renders full tracebacks on any 500 — source, local variables, settings values. `False` in development means debugging blind. |
 | `ALLOWED_HOSTS` | `["*"]` | from `ALLOWED_HOSTS` env var | Production validates the `Host` header against cache and password-reset poisoning. Development cannot enumerate hosts — the LAN IP changes with the network. |
-| `DATABASES` | SQLite file | PostgreSQL | SQLite in production loses data on redeploy and serialises writes. Requiring PostgreSQL in development forces every contributor to run a database server. |
 | CORS | `CORS_ALLOW_ALL_ORIGINS = True` | `CORS_ALLOWED_ORIGINS` allowlist | Expo serves from an unpredictable IP and port, so development must be open. Open in production lets any origin call the API with a user's credentials. |
 | SSL / HSTS | absent | `SECURE_SSL_REDIRECT`, HSTS | `SECURE_SSL_REDIRECT` locally redirects `http://localhost:8000` to an HTTPS port nothing serves. HSTS is worse: the browser caches "localhost is HTTPS-only" for a year, breaking every other local project on the machine. |
 
 Both environment modules open with `from .base import *` and then reassign only what
 differs, so shared configuration is written once and cannot drift between environments.
+
+`DATABASES` is deliberately *not* in that table. PostgreSQL is used in every environment,
+configured once in `base.py` from the `DB_*` environment variables, and neither environment
+module overrides it. Running a different engine locally than in production means local
+tests exercise different type handling, constraint enforcement, and query semantics than
+the deployed system — `JSONField` in particular is native `jsonb` on PostgreSQL and
+serialised text elsewhere. Matching engines costs each contributor one local PostgreSQL
+install and removes an entire class of works-locally-fails-in-production defects.
 
 `base.py` deliberately defaults `DEBUG = False` and `ALLOWED_HOSTS = []` — the safe values,
 not the convenient ones. A settings module that forgets to override them yields a server
