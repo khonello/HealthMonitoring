@@ -4,33 +4,82 @@ Full-stack health monitoring app — Django REST backend + Expo (React Native) f
 
 ---
 
+## Prerequisites
+
+Install these before cloning. Versions listed are what the project is developed against;
+the minimums are what it needs.
+
+| Tool | Minimum | Developed against | Notes |
+|---|---|---|---|
+| Python | 3.10 | 3.10.0 | |
+| Node.js | 20 | 24.17.0 | npm ships with it |
+| PostgreSQL | 15 | 18 | Required — there is no SQLite fallback. See [docs/database-setup.md](docs/database-setup.md) |
+| Git | any | | |
+
+Neither `backend/environ/` (the virtualenv) nor `frontend/node_modules/` is committed, so
+both are created during first-time setup below.
+
+Commands throughout are PowerShell. On macOS or Linux the only differences are
+`environ/bin/activate` instead of `environ\Scripts\activate`, and `cp` instead of `copy`.
+
+---
+
 ## Backend (Django)
-
-**Virtual environment:** `backend/environ/`
-
-**Requires PostgreSQL** — used in every environment, including local development. There is
-no SQLite fallback, so a fresh clone needs a running PostgreSQL server before Django will
-start.
 
 ### First-time setup
 
+**1. Create and activate the virtualenv, then install dependencies.**
+
 ```powershell
 cd backend
+python -m venv environ
 environ\Scripts\activate
 pip install -r requirements.txt
+```
 
-# Copy the env template and fill in your DB credentials + Groq key
+The virtualenv lives at `backend/environ/` and is git-ignored — it must be created on each
+new machine. If `environ\Scripts\activate` is blocked by PowerShell's execution policy, run
+`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` in that terminal first.
+
+**2. Create the PostgreSQL role and database.**
+
+Follow **[docs/database-setup.md](docs/database-setup.md)**. It covers creating the role
+and database with the ownership and privileges Django actually needs, and has a
+troubleshooting table keyed by the real error messages. Skipping this step is the most
+common reason `migrate` fails on a new machine.
+
+**3. Create `.env` and fill it in.**
+
+```powershell
 copy .env.example .env
+```
 
+| Variable | How to get it |
+|---|---|
+| `DB_NAME` `DB_USER` `DB_PASSWORD` `DB_HOST` `DB_PORT` | From the role and database created in step 2 |
+| `SECRET_KEY` | Generate one: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"` |
+| `GROQ_API_KEY` | Free key from [console.groq.com/keys](https://console.groq.com/keys) |
+| `GROQ_MODEL` | Leave as the default `llama-3.3-70b-versatile` |
+
+Without a valid `GROQ_API_KEY` the app still runs, but every triage falls back to a
+generic "see a doctor" recommendation and the failure is recorded in `LLMFailureLog` —
+so the flow is testable, but AI triage is not actually exercised.
+
+**4. Build the schema and seed fixture data.**
+
+```powershell
 python manage.py migrate --settings=configs.settings.development
 python manage.py seed_demo_data --settings=configs.settings.development
 ```
 
-This assumes the `healthmonitoring` database and its role already exist. If you have not
-created them, or `migrate` fails with a connection or permission error, follow
-**[docs/database-setup.md](docs/database-setup.md)** — it covers creating the role and
-database with the right ownership and privileges, configuring `.env`, and a
-troubleshooting table for the common failures.
+`seed_demo_data` is needed because a fresh PostgreSQL database is empty — without it you
+have working software with no accounts to log in as.
+
+**5. Verify.**
+
+```powershell
+python manage.py test --settings=configs.settings.development
+```
 
 ### Start the server
 
@@ -100,8 +149,6 @@ and which scenarios it lets you test.
 
 ## Frontend (Expo)
 
-**Node modules:** `frontend/node_modules/`
-
 ### First-time setup
 
 ```powershell
@@ -111,6 +158,10 @@ npm install --legacy-peer-deps
 
 > Use `--legacy-peer-deps` — the dependency tree has peer conflicts between  
 > `react-native-reanimated` v4, `react-native-worklets`, and React 19.
+
+That is the whole frontend setup. There is no `.env` on this side — the app reads no
+environment variables and discovers the backend automatically (see
+[Running both together](#running-both-together)).
 
 ### Start the dev server
 
